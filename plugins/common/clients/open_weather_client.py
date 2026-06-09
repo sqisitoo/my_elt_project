@@ -5,9 +5,11 @@ import requests
 from pydantic import SecretStr
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
 
+ENDPOINTS = {"historical_airpollution_data": "/data/2.5/air_pollution/history"}
 
 class OpenWeatherApiClient:
     """
@@ -25,7 +27,7 @@ class OpenWeatherApiClient:
         Initialize the OpenWeatherMap API client.
 
         Args:
-            base_url: Full endpoint URL (e.g., 'https://api.openweathermap.org/data/2.5/air_pollution/history')
+            base_url: Base URL ('https://api.openweathermap.org')
             api_key: OpenWeather API key wrapped in SecretStr for secure handling
         """
         # Store base URL without trailing slash for consistent path construction
@@ -77,7 +79,9 @@ class OpenWeatherApiClient:
         """
         # Build query parameters for the API request
         params = {"lat": lat, "lon": lon, "start": int(start_ts), "end": int(end_ts)}
-
+        endpoint = ENDPOINTS["historical_airpollution_data"]
+        full_url = urljoin(self.base_url, endpoint)
+        
         try:
             logger.info(
                 f"Fetching air pollution data for {city} "
@@ -87,7 +91,7 @@ class OpenWeatherApiClient:
             # Make GET request to the configured endpoint
             # Session automatically includes API key in params
             # Timeout prevents hanging connections
-            response = self.session.get(self.base_url, params=params, timeout=10)
+            response = self.session.get(full_url, params=params, timeout=10)
             response.raise_for_status()  # Raise exception for non-2xx status codes
 
             return cast(dict[str, Any], response.json())

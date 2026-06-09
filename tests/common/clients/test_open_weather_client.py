@@ -6,23 +6,35 @@ import requests_mock
 from pydantic import SecretStr
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+from urllib.parse import urljoin
 
-from plugins.common.clients.open_weather_client import OpenWeatherApiClient
+from plugins.common.clients.open_weather_client import OpenWeatherApiClient, ENDPOINTS
+
 
 
 @pytest.fixture
 def base_url():
+    # Root URL used to initialise the client; does not include any endpoint path.
     return "http://api.test.com/data"
 
 
 @pytest.fixture
+def historical_airpollution_url(base_url):
+    # Full URL for the air-pollution history endpoint, built the same way the client does.
+    # Used as the mock target so tests always stay in sync with the real URL construction logic.
+    return urljoin(base_url, ENDPOINTS["historical_airpollution_data"])
+
+
+@pytest.fixture
 def api_key():
+    # Dummy API key wrapped in SecretStr, matching the type the client expects.
     return SecretStr("secret_api_key")
 
 
 @pytest.fixture
 def client(base_url, api_key):
-    # Use a dedicated client per test and close its session after assertions.
+    # Provides a fully initialised client for each test; session is closed on teardown
+    # so open connections don't leak between tests.
     client_instance = OpenWeatherApiClient(base_url, api_key)
 
     yield client_instance
@@ -32,17 +44,36 @@ def client(base_url, api_key):
 
 @pytest.fixture
 def mock_requests():
-    # requests_mock fixture to isolate outbound HTTP calls.
+    # Intercepts all outbound HTTP calls for the duration of the test.
+    # Any request to an unregistered URL raises NoMockAddress, preventing real network calls.
     with requests_mock.Mocker() as m:
         yield m
 
 
-def test_get_historical_data_success_params(client, base_url, api_key, mock_requests):
-    """Happy path: verifies params and response mapping for a 200 reply."""
+def test_endpoints_contract():
+    # Contract test: any change to ENDPOINTS keys or values will fail here explicitly,
+    # making the breakage obvious before other tests start failing with NoMockAddress errors.
+    assert ENDPOINTS == {
+        "historical_airpollution_data": "/data/2.5/air_pollution/history"
+    }
 
+
+def test_full_url_construction(client, mock_requests, historical_airpollution_url):
+    # Verifies that the client assembles the correct full URL from base_url and the endpoint path.
+    # If urljoin behaviour changes or the endpoint key is wrong, this test fails with a clear message
+    # before the other tests fail with NoMockAddress.
+    mock_requests.get(historical_airpollution_url, json={}, status_code=200)
+
+    client.get_historical_airpollution_data(city="Test", lat=0, lon=0, start_ts=0, end_ts=0)
+
+    assert mock_requests.last_request.path == ENDPOINTS["historical_airpollution_data"]
+
+
+def test_get_historical_data_success_params(client, historical_airpollution_url, api_key, mock_requests):
+    # Happy path: verifies that all query params are sent correctly and the response is returned as-is.
     mock_response = {"list": [{"dt": 228}]}
 
-    mock_requests.get(base_url, json=mock_response, status_code=200)
+    mock_requests.get(historical_airpollution_url, json=mock_response, status_code=200)
 
     result = client.get_historical_airpollution_data(
         city="TestCity", lat=10.5, lon=20.5, start_ts=10000, end_ts=20000
@@ -64,7 +95,8 @@ def test_get_historical_data_success_params(client, base_url, api_key, mock_requ
 
 
 def test_retry_strategy_configuration(client):
-    """Retry policy uses expected backoff, methods, and status codes."""
+    # Checks the retry adapter is mounted with the expected parameters on both http:// and https://.
+    # This is a unit test of __init__ — it does not make any HTTP calls.
 
     adapter_http = client.session.get_adapter("http://test.com")
     adapter_https = client.session.get_adapter("https://test.com")
@@ -81,10 +113,11 @@ def test_retry_strategy_configuration(client):
     assert retry_strategy.allowed_methods == ["GET"]
 
 
-def test_client_exhausted_retries_raises_error(base_url, client, mock_requests):
-    """5xx responses bubble up as HTTPError after retries are exhausted."""
+def test_client_exhausted_retries_raises_error(historical_airpollution_url, client, mock_requests):
+    # Integration test: confirms that 5xx responses are retried and ultimately bubble up as HTTPError.
+    # Covers the full retry cycle — no need to repeat this for every method since retry is session-level.
 
-    mock_requests.get(base_url, status_code=500)
+    mock_requests.get(historical_airpollution_url, status_code=500)
 
     with pytest.raises(requests.exceptions.HTTPError) as excinfo:
         client.get_historical_airpollution_data(
@@ -94,10 +127,10 @@ def test_client_exhausted_retries_raises_error(base_url, client, mock_requests):
     assert excinfo.value.response.status_code == 500
 
 
-def test_network_error_raises_exception(base_url, mock_requests, client):
-    """Test that network errors are properly propagated."""
+def test_network_error_raises_exception(historical_airpollution_url, mock_requests, client):
+    # Verifies that low-level network failures (e.g. DNS, TCP reset) are not swallowed by the client.
 
-    mock_requests.get(base_url, exc=requests.ConnectionError("Network failed"))
+    mock_requests.get(historical_airpollution_url, exc=requests.ConnectionError("Network failed"))
 
     with pytest.raises(requests.ConnectionError):
         client.get_historical_airpollution_data(
@@ -106,7 +139,8 @@ def test_network_error_raises_exception(base_url, mock_requests, client):
 
 
 def test_context_manager_closes_session(base_url, api_key):
-    """Context manager should always close the underlying session."""
+    # Ensures the session is always closed on __exit__, even when no exception occurred.
+    # Uses a MagicMock so we can assert close() was called without a real HTTP session.
     from unittest.mock import MagicMock
 
     client = OpenWeatherApiClient(base_url, api_key)
@@ -118,10 +152,11 @@ def test_context_manager_closes_session(base_url, api_key):
     client.session.close.assert_called_once()
 
 
-def test_timestamp_conversion_to_int(base_url, api_key, mock_requests):
-    """Test that float timestamps are properly converted to integers."""
+def test_timestamp_conversion_to_int(base_url, api_key, mock_requests, historical_airpollution_url):
+    # Verifies that float timestamps are truncated to int before being sent as query params.
+    # The API rejects non-integer Unix timestamps, so this conversion must happen in the client.
     mock_response: dict[str, Any] = {"list": []}
-    mock_requests.get(base_url, json=mock_response, status_code=200)
+    mock_requests.get(historical_airpollution_url, json=mock_response, status_code=200)
 
     client = OpenWeatherApiClient(base_url, api_key)
 
@@ -139,9 +174,9 @@ def test_timestamp_conversion_to_int(base_url, api_key, mock_requests):
     client.session.close()
 
 
-def test_timeout_exception_raised(client, mock_requests, base_url):
-    """Test that timeout exceptions are properly raised."""
-    mock_requests.get(base_url, exc=requests.Timeout("Request timeout"))
+def test_timeout_exception_raised(client, mock_requests, historical_airpollution_url):
+    # Confirms that request timeouts are propagated to the caller rather than silently swallowed.
+    mock_requests.get(historical_airpollution_url, exc=requests.Timeout("Request timeout"))
 
     with pytest.raises(requests.Timeout):
         client.get_historical_airpollution_data(
@@ -150,7 +185,7 @@ def test_timeout_exception_raised(client, mock_requests, base_url):
 
 
 def test_base_url_trailing_slash_removed(api_key):
-    """Test that trailing slashes are removed from base URL."""
+    # Trailing slashes on base_url would break urljoin path construction, so the client strips them.
     base_url_with_slash = "http://api.test.com/data/"
 
     client = OpenWeatherApiClient(base_url_with_slash, api_key)
@@ -160,13 +195,14 @@ def test_base_url_trailing_slash_removed(api_key):
     client.session.close()
 
 
-def test_multiple_consecutive_requests(mock_requests, client, base_url):
-    """Test that multiple consecutive requests work properly with session pooling."""
+def test_multiple_consecutive_requests(mock_requests, client, historical_airpollution_url):
+    # Verifies that the shared session handles sequential requests independently,
+    # returning a different response each time (simulates real pagination/batching scenarios).
     mock_response_1 = {"list": [{"dt": 1}]}
     mock_response_2 = {"list": [{"dt": 2}]}
 
     mock_requests.get(
-        base_url,
+        historical_airpollution_url,
         [{"json": mock_response_1, "status_code": 200}, {"json": mock_response_2, "status_code": 200}],
     )
 
