@@ -1,4 +1,5 @@
 import logging
+from collections.abc import Iterator
 from typing import Any, cast
 
 import requests
@@ -9,7 +10,10 @@ from urllib.parse import urljoin
 
 logger = logging.getLogger(__name__)
 
-ENDPOINTS = {"historical_airpollution_data": "/data/2.5/air_pollution/history"}
+ENDPOINTS = {
+    "historical_airpollution_data": "/data/2.5/air_pollution/history",
+    "historical_weather_data": "/data/4.0/onecall/timeline/1h",
+}
 
 class OpenWeatherApiClient:
     """
@@ -106,6 +110,116 @@ class OpenWeatherApiClient:
             logger.error(f"Unexpected error: {e}")
             raise
 
+    def get_historical_weather_data(
+        self, city: str, lat: float, lon: float, start_ts: int | float, end_ts: int | float
+    ) -> Iterator[dict[str, Any]]:
+        """
+        Retrieve historical hourly weather data for a location over a time range.
+
+        The OpenWeather timeline endpoint returns results in chunks, so this method
+        paginates forward from ``start_ts`` until the requested range is exhausted.
+        Each yielded payload contains only records whose timestamps are within the
+        requested end bound.
+
+        Args:
+            city: City name used only for logging context.
+            lat: Latitude coordinate.
+            lon: Longitude coordinate.
+            start_ts: Inclusive Unix timestamp marking the start of the range.
+            end_ts: Inclusive Unix timestamp marking the end of the range.
+
+        Yields:
+            Parsed API response dictionaries for each page of historical hourly weather data.
+
+        Raises:
+            RuntimeError: If pagination exceeds the configured safety page limit.
+            requests.HTTPError: If the API returns an error status code.
+            requests.RequestException: For network-related errors.
+        """
+        endpoint = ENDPOINTS["historical_weather_data"]
+        full_url = urljoin(self.base_url, endpoint)
+
+        current_ts = start_ts
+
+        max_pages = 500
+        page = 0
+        logger.info(
+            "Fetching historical weather data for %s (lat=%s, lon=%s), time range=%s-%s",
+            city,
+            lat,
+            lon,
+            start_ts,
+            end_ts,
+        )
+
+        while current_ts < end_ts:
+            if page >= max_pages:
+                raise RuntimeError(
+                    f"Exceeded max pages limit ({max_pages}), possible infinite loop"
+                )
+
+            try:
+                logger.debug(
+                    "Requesting historical weather page %s for %s starting at %s",
+                    page + 1,
+                    city,
+                    current_ts,
+                )
+
+                params = {"lat": lat, "lon": lon, "start": int(current_ts), "units": "metric"}
+                response = self.session.get(full_url, params=params, timeout=10)
+                response.raise_for_status()
+                data = cast(dict[str, Any], response.json())
+
+            except requests.HTTPError as e:
+                status_code = e.response.status_code if e.response is not None else "unknown"
+                logger.error(
+                    "HTTP error while fetching historical weather data for %s: %s - %s",
+                    city,
+                    status_code,
+                    e,
+                )
+                raise
+            except requests.RequestException as e:
+                logger.error(
+                    "Network error while fetching historical weather data for %s: %s",
+                    city,
+                    e,
+                )
+                raise
+            except Exception as e:
+                logger.error("Unexpected error while fetching historical weather data for %s: %s", city, e)
+                raise
+
+            hourly = data.get("data", [])
+            if not hourly:
+                logger.warning(
+                    "Historical weather response for %s was empty at start_ts=%s; stopping pagination",
+                    city,
+                    current_ts,
+                )
+                break
+
+            hourly_in_range = [record for record in hourly if record["dt"] <= end_ts]
+
+            data["data"] = hourly_in_range
+            data.pop("next", None)
+            data.pop("prev", None)
+
+            last_record_ts = hourly[-1]["dt"]
+            logger.info(
+                "Fetched historical weather page %s for %s with %s in-range records; next start_ts=%s",
+                page + 1,
+                city,
+                len(hourly_in_range),
+                last_record_ts + 3600,
+            )
+
+            current_ts = last_record_ts + 3600
+
+            page += 1
+            yield data
+            
     def __enter__(self):
         """Support using the client as a context manager."""
         return self
