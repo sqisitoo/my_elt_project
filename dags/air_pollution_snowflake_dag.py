@@ -61,7 +61,6 @@ def air_pollution_snowflake_dag():
         conn_id="snowflake_conn",
     )
 
-
     run_dbt_source_freshness = BashOperator(
         task_id="run_dbt_source_freshness",
         bash_command=build_dbt_command("source freshness"),
@@ -76,7 +75,6 @@ def air_pollution_snowflake_dag():
     extract_tasks_group = extract_data.expand(city_info=get_cities_config_task)
 
     extract_tasks_group >> load_raw_data >> run_dbt_source_freshness >> run_dbt
-
 
 
 air_pollution_snowflake_dag()

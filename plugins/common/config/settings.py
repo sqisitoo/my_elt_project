@@ -1,5 +1,5 @@
-from typing import Literal
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, Field, HttpUrl, PostgresDsn, SecretStr, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -54,6 +54,7 @@ class _APISettings(BaseSettings):
     @property
     def url_str(self):
         return str(self.base_url).rstrip("/")
+
 
 class _DBTSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="DBT_", extra="ignore")
