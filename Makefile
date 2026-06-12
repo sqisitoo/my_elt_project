@@ -7,8 +7,8 @@ PYTHON_VERSION ?= 3.10
 
 lint:
 	@set -eo pipefail
-	ruff check . --fix
-	ruff format .
+	ruff check .
+	ruff format . --check
 	mypy .
 
 test:
