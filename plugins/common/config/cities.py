@@ -1,8 +1,7 @@
-from pathlib import Path
 import csv
+from pathlib import Path
 
 from pydantic import BaseModel
-
 
 
 class City(BaseModel):
@@ -54,4 +53,3 @@ def get_cities_config(config_path: Path | None = None) -> list[City]:
             )
             for row in reader
         ]
-

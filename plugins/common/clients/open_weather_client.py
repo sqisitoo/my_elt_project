@@ -165,12 +165,13 @@ class OpenWeatherApiClient:
                     current_ts,
                 )
 
-                params: dict[str, float | int | str] = {"lat": lat,
-                                                        "lon": lon, 
-                                                        "start": int(current_ts),
-                                                        "units": "metric"
-                                                        }
-                
+                params: dict[str, float | int | str] = {
+                    "lat": lat,
+                    "lon": lon,
+                    "start": int(current_ts),
+                    "units": "metric",
+                }
+
                 response = self.session.get(full_url, params=params, timeout=10)
                 response.raise_for_status()
                 data = cast(dict[str, Any], response.json())
