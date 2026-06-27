@@ -83,7 +83,7 @@ def air_pollution_snowflake_dag():
             file_names=files,
             s3_stage=source.s3_stage,
             target_schema=source.target_schema,
-            target_table=source.target_table
+            target_table=source.target_table,
         )
 
     run_dbt_source_freshness = BashOperator(
