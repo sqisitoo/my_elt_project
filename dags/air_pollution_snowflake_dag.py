@@ -1,14 +1,15 @@
 from datetime import datetime, timedelta
 
 from airflow.operators.bash import BashOperator
-from airflow.providers.common.sql.operators.sql import SQLExecuteQueryOperator
 from airflow.sdk import dag, task
 
 from plugins.common.config import settings
 from plugins.common.utils.dbt import build_dbt_command
 
 PLUGINS_DIR = "/opt/airflow/plugins"
-
+# Lookup key into plugins/common/config/sources.yml — identifies which source
+# configuration (target schema, table, S3 stage) to use during the load step.
+SOURCE_NAME = "air_pollution"
 
 @dag(
     dag_id="air_pollution_snowflake_dag",
@@ -19,6 +20,18 @@ PLUGINS_DIR = "/opt/airflow/plugins"
     default_args={"retries": 2, "retry_delay": timedelta(minutes=1)},
 )
 def air_pollution_snowflake_dag():
+    """
+    ELT pipeline that ingests historical air pollution data from OpenWeather into Snowflake.
+
+    Flow:
+        1. ``get_cities_config`` — load the list of cities to process from ``cities_config.csv``.
+        2. ``extract_data`` — for each city, fetch data from the OpenWeather API and write
+           the raw JSON payload to S3 (bronze layer), partitioned by city and date.
+        3. ``load_to_snowflake`` — copy all files produced in the previous step from the
+           S3 stage into the raw Snowflake table via ``COPY INTO``.
+        4. ``run_dbt_source_freshness`` — assert that the source data meets freshness SLAs.
+        5. ``run_dbt`` — build and test all dbt models downstream of the raw source.
+    """
 
     @task
     def get_cities_config():
@@ -55,11 +68,23 @@ def air_pollution_snowflake_dag():
 
         return {"s3_key_to_raw_data": s3_key_to_raw_data, "city": city_info["name"]}
 
-    load_raw_data = SQLExecuteQueryOperator(
-        task_id="load_air_pollution_data",
-        sql="pipelines/air_pollution_snowflake/sql/copy_air_pollution_data.sql",
-        conn_id="snowflake_conn",
-    )
+    @task
+    def load_to_snowflake(extract_output_data):
+        from plugins.common.clients.snowflake_client import SnowflakeClient
+        from plugins.common.config.sources import get_source_config
+
+        snowflake_client = SnowflakeClient(snowflake_conn_id="snowflake_conn")
+        # Collect the S3 key written by each per-city extract task from the expanded group.
+        files = [r["s3_key_to_raw_data"] for r in extract_output_data]
+        source = get_source_config(SOURCE_NAME)
+
+
+        snowflake_client.load_json_to_snowflake(
+            file_names=files,
+            s3_stage=source.s3_stage,
+            target_schema=source.target_schema,
+            target_table=source.target_table
+        )
 
     run_dbt_source_freshness = BashOperator(
         task_id="run_dbt_source_freshness",
@@ -73,6 +98,7 @@ def air_pollution_snowflake_dag():
 
     get_cities_config_task = get_cities_config()
     extract_tasks_group = extract_data.expand(city_info=get_cities_config_task)
+    load_raw_data = load_to_snowflake(extract_tasks_group)
 
     extract_tasks_group >> load_raw_data >> run_dbt_source_freshness >> run_dbt
 
