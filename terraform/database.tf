@@ -57,7 +57,7 @@ resource "aws_db_instance" "default" {
   auto_minor_version_upgrade = true
 
   engine            = "postgres"
-  engine_version    = "17.4"
+  engine_version    = "17.7"
   instance_class    = "db.t4g.micro"
   allocated_storage = 20
 
