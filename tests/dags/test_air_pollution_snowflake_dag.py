@@ -42,7 +42,7 @@ def test_air_pollution_dag_tasks_exist(air_pollution_dag):
     expected_tasks = {
         "get_cities_config",
         "extract_data",
-        "load_air_pollution_data",
+        "load_to_snowflake",
         "run_dbt_source_freshness",
         "run_dbt",
     }
@@ -57,13 +57,13 @@ def test_air_pollution_dag_dependencies(air_pollution_dag):
     """
     get_cities_config = air_pollution_dag.get_task("get_cities_config")
     extract_data = air_pollution_dag.get_task("extract_data")
-    load_air_pollution = air_pollution_dag.get_task("load_air_pollution_data")
+    load_to_snowflake = air_pollution_dag.get_task("load_to_snowflake")
     run_dbt_source_freshness = air_pollution_dag.get_task("run_dbt_source_freshness")
     run_dbt = air_pollution_dag.get_task("run_dbt")
 
     assert get_cities_config in extract_data.upstream_list
-    assert extract_data in load_air_pollution.upstream_list
-    assert load_air_pollution in run_dbt_source_freshness.upstream_list
+    assert extract_data in load_to_snowflake.upstream_list
+    assert load_to_snowflake in run_dbt_source_freshness.upstream_list
     assert run_dbt_source_freshness in run_dbt.upstream_list
 
 
