@@ -11,6 +11,7 @@ PLUGINS_DIR = "/opt/airflow/plugins"
 # configuration (target schema, table, S3 stage) to use during the load step.
 SOURCE_NAME = "air_pollution"
 
+
 @dag(
     dag_id="air_pollution_snowflake_dag",
     start_date=datetime(2026, 3, 10),
@@ -77,7 +78,6 @@ def air_pollution_snowflake_dag():
         # Collect the S3 key written by each per-city extract task from the expanded group.
         files = [r["s3_key_to_raw_data"] for r in extract_output_data]
         source = get_source_config(SOURCE_NAME)
-
 
         snowflake_client.load_json_to_snowflake(
             file_names=files,

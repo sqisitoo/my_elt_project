@@ -1,7 +1,7 @@
-import yaml
-
-from pydantic import BaseModel
 from pathlib import Path
+
+import yaml
+from pydantic import BaseModel
 
 
 class DataSource(BaseModel):
@@ -47,8 +47,7 @@ def get_source_config(name: str, config_path: Path | None = None) -> DataSource:
 
     with open(config_path) as f:
         sources_metadata = yaml.safe_load(f)
-    
+
     data_source = sources_metadata["sources"][name]
-    
+
     return DataSource(**data_source)
-    
