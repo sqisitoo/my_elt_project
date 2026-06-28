@@ -80,10 +80,19 @@ resource "snowflake_storage_integration_aws" "s3_storage_integration" {
   storage_aws_role_arn      = aws_iam_role.snowflake_role.arn
 }
 
-resource "snowflake_stage_external_s3" "stage_external_s3" {
+resource "snowflake_stage_external_s3" "stage_external_s3_air_pollution" {
   name                = "s3_stage"
   database            = snowflake_database.raw_db.name
   schema              = snowflake_schema.raw_air_pollution.name
+  url                 = "s3://${aws_s3_bucket.datalake.id}"
+  storage_integration = snowflake_storage_integration_aws.s3_storage_integration.name
+
+}
+
+resource "snowflake_stage_external_s3" "stage_external_s3_weather" {
+  name                = "s3_stage"
+  database            = snowflake_database.raw_db.name
+  schema              = snowflake_schema.raw_weather.name
   url                 = "s3://${aws_s3_bucket.datalake.id}"
   storage_integration = snowflake_storage_integration_aws.s3_storage_integration.name
 
@@ -260,13 +269,23 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_weather_tables_us
   }
 }
 
-resource "snowflake_grant_privileges_to_account_role" "airflow_stage" {
+resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_stage" {
   account_role_name = snowflake_account_role.airflow.name
   privileges        = ["USAGE", "READ"]
 
   on_schema_object {
     object_type = "STAGE"
-    object_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_air_pollution.name}.${snowflake_stage_external_s3.stage_external_s3.name}"
+    object_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_air_pollution.name}.${snowflake_stage_external_s3.stage_external_s3_air_pollution.name}"
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "airflow_weather_stage" {
+  account_role_name = snowflake_account_role.airflow.name
+  privileges        = ["USAGE", "READ"]
+
+  on_schema_object {
+    object_type = "STAGE"
+    object_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}.${snowflake_stage_external_s3.stage_external_s3_weather.name}"
   }
 }
 
