@@ -58,8 +58,8 @@ def weather_snowflake_dag():
             lon=city_info["lon"],
             open_weather_client=api_client,
             s3_service=s3_service,
-            start_ts=data_interval_start,
-            end_ts=data_interval_end,
+            start_ts=data_interval_start.timestamp(),
+            end_ts=data_interval_end.timestamp(),
             logical_date=logical_date,
         )
 
