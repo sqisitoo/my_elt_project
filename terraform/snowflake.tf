@@ -13,6 +13,11 @@ resource "snowflake_schema" "raw_air_pollution" {
   name     = "AIR_POLLUTION"
 }
 
+resource "snowflake_schema" "raw_weather" {
+  database = snowflake_database.raw_db.name
+  name     = "WEATHER"
+}
+
 
 resource "snowflake_warehouse" "tf_warehouse" {
   name                      = "SNOWFLAKE_WH"
@@ -112,6 +117,34 @@ resource "snowflake_table" "raw_air_pollution" {
   }
 }
 
+resource "snowflake_table" "raw_weather" {
+  database = snowflake_database.raw_db.name
+  schema   = snowflake_schema.raw_weather.name
+  name     = "RAW_WEATHER"
+  comment  = "Raw JSON payloads for weather data"
+
+  column {
+    name     = "RAW_PAYLOAD"
+    type     = "VARIANT"
+    nullable = false
+  }
+
+  column {
+    name     = "_RAW_LOADED_AT"
+    type     = "TIMESTAMP_NTZ(9)"
+    nullable = false
+    default {
+      expression = "SYSDATE()"
+    }
+  }
+
+  column {
+    name     = "_SOURCE_FILE"
+    type     = "VARCHAR"
+    nullable = false
+  }
+}
+
 resource "tls_private_key" "airflow_svc_key" {
   algorithm = "RSA"
   rsa_bits  = 2048
@@ -155,7 +188,7 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_db" {
   }
 }
 
-resource "snowflake_grant_privileges_to_account_role" "airflow_schema_usage" {
+resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_schema_usage" {
 
   account_role_name = snowflake_account_role.airflow.name
   privileges        = ["USAGE", "CREATE TABLE", "CREATE VIEW", "CREATE STAGE"]
@@ -165,7 +198,17 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_schema_usage" {
   }
 }
 
-resource "snowflake_grant_privileges_to_account_role" "airflow_tables_usage" {
+resource "snowflake_grant_privileges_to_account_role" "airflow_weather_schema_usage" {
+
+  account_role_name = snowflake_account_role.airflow.name
+  privileges        = ["USAGE", "CREATE TABLE", "CREATE VIEW", "CREATE STAGE"]
+
+  on_schema {
+    schema_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}"
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_tables_usage" {
 
   account_role_name = snowflake_account_role.airflow.name
   privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
@@ -178,7 +221,20 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_tables_usage" {
   }
 }
 
-resource "snowflake_grant_privileges_to_account_role" "airflow_tables_usage_feature" {
+resource "snowflake_grant_privileges_to_account_role" "airflow_weather_tables_usage" {
+
+  account_role_name = snowflake_account_role.airflow.name
+  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
+
+  on_schema_object {
+    all {
+      object_type_plural = "TABLES"
+      in_schema          = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}"
+    }
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_tables_usage_feature" {
 
   account_role_name = snowflake_account_role.airflow.name
   privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
@@ -187,6 +243,19 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_tables_usage_feat
     future {
       object_type_plural = "TABLES"
       in_schema          = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_air_pollution.name}"
+    }
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "airflow_weather_tables_usage_feature" {
+
+  account_role_name = snowflake_account_role.airflow.name
+  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
+
+  on_schema_object {
+    future {
+      object_type_plural = "TABLES"
+      in_schema          = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}"
     }
   }
 }
