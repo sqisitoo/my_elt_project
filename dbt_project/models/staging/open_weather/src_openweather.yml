@@ -13,3 +13,6 @@ sources:
             warn_after: {count: 1, period: hour}
             error_after: {count: 3, period: hour}
           loaded_at_field: _RAW_LOADED_AT
+      - name: raw_weather
+        identifier: RAW_WEATHER
+        description: "Raw JSON payload from OpenWeatherMap One Call 4.0 API"
