@@ -1,7 +1,7 @@
 with source as (
 
     select raw_payload, _source_file, _raw_loaded_at
-    from {{ source('openweather', 'raw_weather') }}
+    from {{ source('openweather_weather', 'raw_weather') }}
 
 ),
 
@@ -33,7 +33,7 @@ flattened as (
         _source_file,
         _raw_loaded_at,
         '{{ run_started_at }}'::timestamp_tz as _stg_loaded_at
-    from source
+    from source,
     lateral flatten(input => raw_payload:data) f
 ),
 
@@ -99,7 +99,7 @@ hashed as (
     from rounded
 ),
 
-final as (
+deduplicated as (
     select
         weather_id,
         latitude,
@@ -126,6 +126,35 @@ final as (
         _raw_loaded_at,
         _stg_loaded_at
     from hashed
+    qualify row_number() over (partition by weather_id order by _raw_loaded_at desc) = 1
+),
+
+final as (
+    select
+        weather_id,
+        latitude,
+        longitude,
+        observation_utc_ts,
+        cloudiness_percentage,
+        temperature_celsius,
+        temperature_feels_like_celsius,
+        pressure_hPa,
+        humidity_percentage,
+        dew_point_temperature_celsius,
+        uv_index,
+        visibility_meter,
+        wind_speed_metre_per_sec,
+        wind_direction_degree,
+        wind_gust_metre_per_sec,
+        rain_1h_mm,
+        snow_1h_mm,
+        weather_description,
+        weather_icon_id,
+        weather_group,
+        weather_condition_id,
+        _source_file,
+        _stg_loaded_at
+    from deduplicated
 )
 
 select * from final
