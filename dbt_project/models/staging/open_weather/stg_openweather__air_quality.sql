@@ -1,7 +1,7 @@
 with source as (
 
     select raw_payload, _source_file, _raw_loaded_at
-    from {{ source('openweather', 'raw_air_pollution') }}
+    from {{ source('openweather_air_pollution', 'raw_air_pollution') }}
 
 ),
 
