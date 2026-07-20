@@ -7,13 +7,13 @@ models:
     columns:
       - name: air_quality_id
         description: "Surrogate key uniquely identifying each air quality observation."
-        tests:
+        data_tests:
           - unique
           - not_null
-      
+    
       - name: location_id
         description: "Surrogate key generated for each configured location."
-        tests:
+        data_tests:
           - not_null
           - relationships:
               arguments:
@@ -22,7 +22,7 @@ models:
 
       - name: observation_ts
         description: "UTC timestamp of the air quality observation."
-        tests:
+        data_tests:
           - not_null
 
       - name: aqi

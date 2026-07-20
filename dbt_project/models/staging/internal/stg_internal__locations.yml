@@ -7,21 +7,21 @@ models:
     columns:
       - name: location_id
         description: "Surrogate key generated for each configured location."
-        tests:
+        data_tests:
           - unique
           - not_null
 
       - name: city_name
         description: "City name from internal configuration."
-        tests:
+        data_tests:
           - not_null
 
       - name: latitude
         description: "Latitude coordinate of the city in decimal degrees."
-        tests:
+        data_tests:
           - not_null
 
       - name: longitude
         description: "Longitude coordinate of the city in decimal degrees."
-        tests:
+        data_tests:
           - not_null

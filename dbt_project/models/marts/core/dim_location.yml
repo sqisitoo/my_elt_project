@@ -7,7 +7,7 @@ models:
     columns:
       - name: location_id
         description: "Surrogate key uniquely identifying each configured location."
-        tests:
+        data_tests:
           - unique
           - not_null
 

@@ -11,28 +11,28 @@ models:
     columns:
       - name: air_quality_id
         description: "Surrogate key generated from lat, lon, and observation_ts."
-        tests:
+        data_tests:
           - unique
           - not_null
 
       - name: latitude
         description: "Latitude of the observation point."
-        tests:
+        data_tests:
           - not_null
 
       - name: longitude
         description: "Longitude of the observation point."
-        tests:
+        data_tests:
           - not_null
 
       - name: observation_ts
         description: "UTC timestamp of the air quality observation."
-        tests:
+        data_tests:
           - not_null
 
       - name: aqi
         description: "Air Quality Index (1 = Good, 2 = Fair, 3 = Moderate, 4 = Poor, 5 = Very Poor)."
-        tests:
+        data_tests:
           - accepted_values:
               arguments:
                 values: [1, 2, 3, 4, 5]
@@ -68,8 +68,9 @@ models:
       - name: _stg_loaded_at
         description: "Timestamp when the record was loaded into the warehouse."
 
-    tests:
+    data_tests:
       - dbt_utils.recency:
-          datepart: day
-          field: observation_ts
-          interval: 2
+          arguments:
+            datepart: day
+            field: observation_ts
+            interval: 2
