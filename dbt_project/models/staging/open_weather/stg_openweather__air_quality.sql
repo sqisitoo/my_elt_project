@@ -1,7 +1,7 @@
 with source as (
 
     select raw_payload, _source_file, _raw_loaded_at
-    from {{ source('openweather', 'raw_air_pollution') }}
+    from {{ source('openweather_air_pollution', 'raw_air_pollution') }}
 
 ),
 
@@ -99,9 +99,12 @@ deduplicated as (
         _source_file,
         _stg_loaded_at
     from hashed
+    -- _raw_loaded_at is identical for all rows in one COPY INTO because it defaults to SYSDATE(), so this tie-breaker is effective.
+    -- Source file names encode logical_date and part number, so a lexicographically larger name represents a later load.
+    -- The goal is reproducible builds, not a "correct" row: versions with equal load times are equally fresh.
     qualify row_number() over (
         partition by air_quality_id
-        order by _raw_loaded_at desc
+        order by _raw_loaded_at desc, _source_file desc
     ) = 1
 ),
 

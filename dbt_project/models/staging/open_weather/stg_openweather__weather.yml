@@ -1,0 +1,162 @@
+version: 2
+
+models:
+  - name: stg_openweather__weather
+    description: >
+      Staged weather observations from the OpenWeather One Call API 4.0.
+      Each row represents a single observation for a specific coordinate and timestamp.
+      Raw JSON is flattened and typed; surrogate key is generated from lat, lon, and observation_utc_ts.
+      When _raw_loaded_at values are equal, the record from the lexicographically larger source file name is selected.
+
+    columns:
+      - name: weather_id
+        description: "Surrogate key generated from lat, lon, and observation_utc_ts."
+        data_tests:
+          - unique
+          - not_null
+
+      - name: latitude
+        description: "Latitude of the observation point, rounded to 4 decimals."
+        data_tests:
+          - not_null
+
+      - name: longitude
+        description: "Longitude of the observation point, rounded to 4 decimals."
+        data_tests:
+          - not_null
+
+      - name: observation_utc_ts
+        description: "UTC timestamp of the weather observation."
+        data_tests:
+          - not_null
+
+      - name: cloudiness_percentage
+        description: "Cloudiness, %."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+                inclusive: true
+          - not_null
+
+      - name: temperature_celsius
+        description: "Air temperature, °C."
+        data_tests:
+          - not_null
+
+
+      - name: temperature_feels_like_celsius
+        description: "Perceived temperature accounting for human perception, °C."
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: pressure_hPa
+        description: "Atmospheric pressure at sea level, hPa."
+        data_tests:
+          - not_null
+
+      - name: humidity_percentage
+        description: "Humidity, %."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 100
+                inclusive: true
+          - not_null
+
+      - name: dew_point_temperature_celsius
+        description: "Dew point temperature, °C."
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: uv_index
+        description: "UV index."
+        data_tests:
+          - not_null:
+              config:
+                severity: warn
+
+      - name: visibility_meter
+        description: "Average visibility, meters."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+          - not_null:
+              config:
+                severity: warn
+
+      - name: wind_speed_metre_per_sec
+        description: "Wind speed, meter/sec."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+          - not_null
+
+      - name: wind_direction_degree
+        description: "Wind direction, degrees (meteorological)."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                max_value: 360
+                inclusive: true
+          - not_null:
+              config:
+                severity: warn
+
+      - name: wind_gust_metre_per_sec
+        description: "Wind gust speed, meter/sec."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+
+      - name: rain_1h_mm
+        description: "Rain volume for the last hour, mm."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: snow_1h_mm
+        description: "Snow volume for the last hour, mm."
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+
+      - name: weather_description
+        description: "Human-readable weather condition description."
+
+      - name: weather_icon_id
+        description: "Weather icon id."
+
+      - name: weather_group
+        description: "Group of weather parameters (Rain, Snow, Clouds etc.)."
+
+      - name: weather_condition_id
+        description: "Weather condition id."
+
+      - name: _source_file
+        description: "S3 source file path from which the record was loaded."
+
+      - name: _stg_loaded_at
+        description: "Timestamp when the record was loaded into the warehouse."
+    
+    data_tests:
+      - dbt_utils.recency:
+          arguments:
+            datepart: day
+            field: observation_utc_ts
+            interval: 2
