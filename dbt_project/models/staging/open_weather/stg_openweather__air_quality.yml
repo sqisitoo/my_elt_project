@@ -6,6 +6,7 @@ models:
       Staged air quality observations from the OpenWeather Air Pollution API.
       Each row represents a single observation for a specific coordinate and timestamp.
       Raw JSON is flattened and typed; surrogate key is generated from lat, lon, and observation_ts.
+      When _raw_loaded_at values are equal, the record from the lexicographically larger source file name is selected.
 
     columns:
       - name: air_quality_id

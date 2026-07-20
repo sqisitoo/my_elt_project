@@ -126,7 +126,13 @@ deduplicated as (
         _raw_loaded_at,
         _stg_loaded_at
     from hashed
-    qualify row_number() over (partition by weather_id order by _raw_loaded_at desc) = 1
+    -- _raw_loaded_at is identical for all rows in one COPY INTO because it defaults to SYSDATE(), so this tie-breaker is effective.
+    -- Source file names encode logical_date and part number, so a lexicographically larger name represents a later load.
+    -- The goal is reproducible builds, not a "correct" row: versions with equal load times are equally fresh.
+    qualify row_number() over (
+        partition by weather_id
+        order by _raw_loaded_at desc, _source_file desc
+    ) = 1
 ),
 
 final as (
