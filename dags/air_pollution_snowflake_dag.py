@@ -88,12 +88,17 @@ def air_pollution_snowflake_dag():
 
     run_dbt_source_freshness = BashOperator(
         task_id="run_dbt_source_freshness",
-        bash_command=build_dbt_command("source freshness"),
+        bash_command=build_dbt_command("source freshness", "source:openweather_air_pollution"),
     )
 
+    # seed → stg_internal__locations → dim_location        (node, does not build)
+    #                               ↘ fct_air_quality
+    # source → stg_openweather__air_quality → fct_air_quality
+    # see issue #49
+    # temporary sollution "+fct_air_quality + dim_location" instead of just "+fct_air_quality"
     run_dbt = BashOperator(
         task_id="run_dbt",
-        bash_command=build_dbt_command("build"),
+        bash_command=build_dbt_command("build", "+fct_air_quality +dim_location"),
     )
 
     get_cities_config_task = get_cities_config()
