@@ -3,6 +3,13 @@ from airflow.models import DagBag
 
 DAGS_FOLDER = "dags"
 DAG_ID = "air_pollution_snowflake_dag"
+FRESHNESS_SELECTOR = "source:openweather_air_pollution"
+# seed → stg_internal__locations → dim_location        (node, does not build)
+#                               ↘ fct_air_quality
+# source → stg_openweather__air_quality → fct_air_quality
+# see issue #49
+# temporary sollution "+fct_air_quality + dim_location" instead of just "+fct_air_quality"
+BUILD_SELECTOR = "+fct_air_quality +dim_location"
 
 
 @pytest.fixture(scope="module")
@@ -74,3 +81,13 @@ def test_dbt_tasks_bash_commands_use_env_vars(air_pollution_dag):
         assert "$DBT_TARGET" in cmd
         assert "$DBT_PROJECT_DIR" in cmd
         assert "$DBT_PROFILES_DIR" in cmd
+
+
+def test_dbt_source_freshness_task_use_proper_selector(air_pollution_dag):
+    cmd = air_pollution_dag.get_task("run_dbt_source_freshness").bash_command
+    assert f"--select {FRESHNESS_SELECTOR}" in cmd
+
+
+def test_dbt_source_build_task_use_proper_selector(air_pollution_dag):
+    cmd = air_pollution_dag.get_task("run_dbt").bash_command
+    assert f"--select {BUILD_SELECTOR}" in cmd

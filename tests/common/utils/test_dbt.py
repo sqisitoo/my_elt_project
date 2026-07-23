@@ -16,3 +16,7 @@ def test_build_dbt_command_contains_required_env_vars(subcommand):
 def test_build_dbt_command_includes_subcommand():
     assert "build" in build_dbt_command("build")
     assert "source freshness" in build_dbt_command("source freshness")
+
+
+def test_build_dbt_command_includes_select():
+    assert "--select model_name" in build_dbt_command("build", "model_name")
