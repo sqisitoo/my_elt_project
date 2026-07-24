@@ -22,7 +22,7 @@ dim_loc as (
         city_name,
         latitude,
         longitude
-    from {{ ref('stg_internal__locations') }}
+    from {{ ref('dim_location') }}
 ),
 
 joined as (
