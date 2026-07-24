@@ -4,12 +4,7 @@ from airflow.models import DagBag
 DAGS_FOLDER = "dags"
 DAG_ID = "air_pollution_snowflake_dag"
 FRESHNESS_SELECTOR = "source:openweather_air_pollution"
-# seed → stg_internal__locations → dim_location        (node, does not build)
-#                               ↘ fct_air_quality
-# source → stg_openweather__air_quality → fct_air_quality
-# see issue #49
-# temporary sollution "+fct_air_quality + dim_location" instead of just "+fct_air_quality"
-BUILD_SELECTOR = "+fct_air_quality +dim_location"
+BUILD_SELECTOR = "+fct_air_quality"
 
 
 @pytest.fixture(scope="module")
