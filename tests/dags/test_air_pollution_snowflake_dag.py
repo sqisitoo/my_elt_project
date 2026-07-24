@@ -3,6 +3,7 @@ from airflow.models import DagBag
 
 DAGS_FOLDER = "dags"
 DAG_ID = "air_pollution_snowflake_dag"
+# Airflow-to-dbt orchestration contract for the air_pollution pipeline.
 FRESHNESS_SELECTOR = "source:openweather_air_pollution"
 BUILD_SELECTOR = "+fct_air_quality"
 
@@ -46,7 +47,7 @@ def test_air_pollution_dag_tasks_exist(air_pollution_dag):
         "extract_data",
         "load_to_snowflake",
         "run_dbt_source_freshness",
-        "run_dbt",
+        "run_dbt_build",
     }
 
     assert set(tasks) == expected_tasks
@@ -61,16 +62,16 @@ def test_air_pollution_dag_dependencies(air_pollution_dag):
     extract_data = air_pollution_dag.get_task("extract_data")
     load_to_snowflake = air_pollution_dag.get_task("load_to_snowflake")
     run_dbt_source_freshness = air_pollution_dag.get_task("run_dbt_source_freshness")
-    run_dbt = air_pollution_dag.get_task("run_dbt")
+    run_dbt_build = air_pollution_dag.get_task("run_dbt_build")
 
     assert get_cities_config in extract_data.upstream_list
     assert extract_data in load_to_snowflake.upstream_list
     assert load_to_snowflake in run_dbt_source_freshness.upstream_list
-    assert run_dbt_source_freshness in run_dbt.upstream_list
+    assert run_dbt_source_freshness in run_dbt_build.upstream_list
 
 
 def test_dbt_tasks_bash_commands_use_env_vars(air_pollution_dag):
-    for task_id in ("run_dbt_source_freshness", "run_dbt"):
+    for task_id in ("run_dbt_source_freshness", "run_dbt_build"):
         cmd = air_pollution_dag.get_task(task_id).bash_command
         assert "$DBT_VENV_PATH" in cmd
         assert "$DBT_TARGET" in cmd
@@ -84,5 +85,5 @@ def test_dbt_source_freshness_task_use_proper_selector(air_pollution_dag):
 
 
 def test_dbt_source_build_task_use_proper_selector(air_pollution_dag):
-    cmd = air_pollution_dag.get_task("run_dbt").bash_command
+    cmd = air_pollution_dag.get_task("run_dbt_build").bash_command
     assert f"--select {BUILD_SELECTOR}" in cmd

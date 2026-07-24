@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from airflow.operators.bash import BashOperator
+from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import dag, task
 
 from plugins.common.config import settings
@@ -31,7 +31,7 @@ def air_pollution_snowflake_dag():
         3. ``load_to_snowflake`` — copy all files produced in the previous step from the
            S3 stage into the raw Snowflake table via ``COPY INTO``.
         4. ``run_dbt_source_freshness`` — assert that the source data meets freshness SLAs.
-        5. ``run_dbt`` — build and test all dbt models downstream of the raw source.
+        5. ``run_dbt_build`` — build and test all dbt models downstream of the raw source.
     """
 
     @task
@@ -91,8 +91,8 @@ def air_pollution_snowflake_dag():
         bash_command=build_dbt_command("source freshness", "source:openweather_air_pollution"),
     )
 
-    run_dbt = BashOperator(
-        task_id="run_dbt",
+    run_dbt_build = BashOperator(
+        task_id="run_dbt_build",
         bash_command=build_dbt_command("build", "+fct_air_quality"),
     )
 
@@ -100,7 +100,7 @@ def air_pollution_snowflake_dag():
     extract_tasks_group = extract_data.expand(city_info=get_cities_config_task)
     load_raw_data = load_to_snowflake(extract_tasks_group)
 
-    extract_tasks_group >> load_raw_data >> run_dbt_source_freshness >> run_dbt
+    extract_tasks_group >> load_raw_data >> run_dbt_source_freshness >> run_dbt_build
 
 
 air_pollution_snowflake_dag()

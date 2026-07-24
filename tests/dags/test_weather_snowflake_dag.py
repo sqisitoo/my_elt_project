@@ -3,6 +3,9 @@ from airflow.models import DagBag
 
 DAGS_FOLDER = "dags"
 DAG_ID = "weather_snowflake_dag"
+# Airflow-to-dbt orchestration contract for the weather pipeline.
+FRESHNESS_SELECTOR = "source:openweather_weather"
+BUILD_SELECTOR = "+stg_openweather__weather"
 
 
 @pytest.fixture(scope="module")
@@ -41,6 +44,8 @@ def test_weather_dag_tasks_exist(weather_dag):
         "get_cities_config",
         "extract_data",
         "load_to_snowflake",
+        "run_dbt_source_freshness",
+        "run_dbt_build",
     }
 
     assert set(tasks) == expected_tasks
@@ -54,6 +59,29 @@ def test_weather_dag_dependencies(weather_dag):
     get_cities_config = weather_dag.get_task("get_cities_config")
     extract_data = weather_dag.get_task("extract_data")
     load_to_snowflake = weather_dag.get_task("load_to_snowflake")
+    run_dbt_source_freshness = weather_dag.get_task("run_dbt_source_freshness")
+    run_dbt_build = weather_dag.get_task("run_dbt_build")
 
     assert get_cities_config in extract_data.upstream_list
     assert extract_data in load_to_snowflake.upstream_list
+    assert load_to_snowflake in run_dbt_source_freshness.upstream_list
+    assert run_dbt_source_freshness in run_dbt_build.upstream_list
+
+
+def test_dbt_tasks_bash_commands_use_env_vars(weather_dag):
+    for task_id in ("run_dbt_source_freshness", "run_dbt_build"):
+        cmd = weather_dag.get_task(task_id).bash_command
+        assert "$DBT_VENV_PATH" in cmd
+        assert "$DBT_TARGET" in cmd
+        assert "$DBT_PROJECT_DIR" in cmd
+        assert "$DBT_PROFILES_DIR" in cmd
+
+
+def test_dbt_source_freshness_task_use_proper_selector(weather_dag):
+    cmd = weather_dag.get_task("run_dbt_source_freshness").bash_command
+    assert f"--select {FRESHNESS_SELECTOR}" in cmd
+
+
+def test_dbt_source_build_task_use_proper_selector(weather_dag):
+    cmd = weather_dag.get_task("run_dbt_build").bash_command
+    assert f"--select {BUILD_SELECTOR}" in cmd
