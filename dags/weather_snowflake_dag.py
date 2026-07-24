@@ -1,8 +1,10 @@
 from datetime import datetime, timedelta
 
+from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import dag, task
 
 from plugins.common.config import settings
+from plugins.common.utils.dbt import build_dbt_command
 
 PLUGINS_DIR = "/opt/airflow/plugins"
 # Lookup key into plugins/common/config/sources.yml — identifies which source
@@ -28,6 +30,8 @@ def weather_snowflake_dag():
            the raw JSON payload to S3 (bronze layer), partitioned by city and date.
         3. ``load_to_snowflake`` — copy all files produced in the previous step from the
            S3 stage into the raw Snowflake table via ``COPY INTO``.
+        4. ``run_dbt_source_freshness`` — assert that the source data meets freshness SLAs.
+        5. ``run_dbt_build`` — build and test all dbt models downstream of the raw source.
     """
 
     @task
@@ -81,9 +85,18 @@ def weather_snowflake_dag():
             target_table=source.target_table,
         )
 
+    run_dbt_source_freshness = BashOperator(
+        task_id="run_dbt_source_freshness",
+        bash_command=build_dbt_command("source freshness", "source:openweather_weather"),
+    )
+
+    run_dbt_build = BashOperator(
+        task_id="run_dbt_build", bash_command=build_dbt_command("build", "+stg_openweather__weather")
+    )
+
     get_cities_config_task = get_cities_config()
     extract_tasks_group = extract_data.expand(city_info=get_cities_config_task)
-    extract_tasks_group >> load_to_snowflake(extract_tasks_group)
+    extract_tasks_group >> load_to_snowflake(extract_tasks_group) >> run_dbt_source_freshness >> run_dbt_build
 
 
 weather_snowflake_dag()
