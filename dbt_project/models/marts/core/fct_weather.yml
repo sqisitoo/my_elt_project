@@ -1,0 +1,113 @@
+version: 2
+
+models:
+  - name: fct_weather
+    description: >
+      Atomic fact table of hourly weather observations.
+      Grain: one row per location per hour (location_id + observation_utc_ts)
+      Measures pass through from stg_openweather__weather unchanged - no aggregation
+      and no derived columns. The only transformation is replacing latitude/longitude
+      with location_id from dim_location
+
+    columns:
+      - name: weather_id
+        description: > 
+          Surrogate key uniquely identifying each weather observation
+          generated as a hash of three columns: 'latitude', 'longitude', and 'observation_utc_ts' (observation timestamp)
+        data_tests:
+          - unique
+          - not_null
+
+      - name: location_id
+        description: >
+          Foreign key from location dimension.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('dim_location')
+                field: location_id
+      
+      - name: observation_utc_ts
+        description: "UTC timestamp of the weather observation."
+        data_tests:
+          - not_null
+
+      - name: cloudiness_percentage
+        description: >
+          Cloud cover, expressed as the percentage of the sky obscured by clouds.
+          Non-additive: use AVG or MAX for a period, never SUM.
+
+      - name: temperature_celsius
+        description: >
+          Air temperature, °C. Non-additive: use AVG for a period, never SUM.
+          This is an OpenWeather model output for the coordinate, not a station reading.
+
+      - name: dew_point_temperature_celsius
+        description: >
+          Dew point temperature, °C: the temperature at which water vapour begins
+          to condense. Non-additive: use AVG for a period, never SUM.
+
+      - name: pressure_hPa
+        description: >
+          Atmospheric pressure at sea level, hPa. Non-additive: use AVG, MIN, or
+          MAX depending on the analysis, never SUM.
+
+      - name: humidity_percentage
+        description: >
+          Relative humidity, %. Non-additive: use AVG, MIN, or MAX depending on
+          the analysis, never SUM.
+
+      - name: uv_index
+        description: >
+          Ultraviolet index, a unitless measure of expected UV radiation intensity.
+          Non-additive: use AVG or MAX for a period, never SUM.
+
+      - name: visibility_meter
+        description: >
+          Average horizontal visibility, metres. OpenWeather caps this value at
+          10,000 metres. Non-additive: use AVG or MIN for a period, never SUM.
+
+      - name: wind_speed_metre_per_sec
+        description: >
+          Wind speed, metres per second. Non-additive: use AVG or MAX for a
+          period, never SUM.
+
+      - name: wind_direction_degree
+        description: >
+          Wind direction, meteorological degrees. 0/360 = wind from the north,
+          90 = from the east. Not aggregatable by AVG: the scale wraps, so the
+          mean of 350 and 10 is 180 — the opposite direction. Group by compass
+          sector, or average as vectors together with wind_speed_metre_per_sec.
+
+      - name: wind_gust_metre_per_sec
+        description: >
+          Wind gust speed, metres per second, where OpenWeather provides it.
+          NULL means the source did not return a gust value. Non-additive: use
+          AVG or MAX for a period, never SUM.
+
+      - name: rain_1h_mm
+        description: >
+          Rain volume for the hour, mm. Additive: SUM gives total rainfall.
+          NULL means no rain was reported, not zero. AVG over all rows therefore
+          answers "average rainfall in hours when it rained" — use SUM/24 or
+          COALESCE(rain_1h_mm, 0) if you mean average over all hours.
+
+      - name: snow_1h_mm
+        description: >
+          Snow volume for the hour, mm. Additive: SUM gives total snowfall.
+          NULL means no snow was reported, not zero. AVG over all rows therefore
+          answers "average snowfall in hours when it snowed" — use SUM/24 or
+          COALESCE(snow_1h_mm, 0) if you mean average over all hours.
+
+      - name: weather_condition_id
+        description: >
+          OpenWeather weather-condition code. This is a categorical identifier, not a numeric measure.
+          Intended to join to a future weather-condition dimension.
+
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - location_id
+              - observation_utc_ts

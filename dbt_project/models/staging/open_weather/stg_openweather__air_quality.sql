@@ -11,7 +11,7 @@ flattened as (
         raw_payload:coord.lat::float as latitude,
         raw_payload:coord.lon::float as longitude,
         
-        to_timestamp_ntz(f.value:dt::number) as observation_ts,
+        to_timestamp_ntz(f.value:dt::number) as observation_utc_ts,
 
         f.value:main.aqi::int as aqi,
 
@@ -38,7 +38,7 @@ rounded as (
         round(latitude, 4) as latitude,
         round(longitude, 4) as longitude,
 
-        observation_ts,
+        observation_utc_ts,
         aqi,
         co,
         no,
@@ -60,12 +60,12 @@ hashed as (
         {{ dbt_utils.generate_surrogate_key([
             'latitude', 
             'longitude', 
-            'observation_ts'
+            'observation_utc_ts'
         ]) }} as air_quality_id,
 
         latitude,
         longitude,
-        observation_ts,
+        observation_utc_ts,
         aqi,
         co,
         no,
@@ -86,7 +86,7 @@ deduplicated as (
         air_quality_id,
         latitude,
         longitude,
-        observation_ts,
+        observation_utc_ts,
         aqi,
         co,
         no,
@@ -115,7 +115,7 @@ final as (
         air_quality_id,
         latitude,
         longitude,
-        observation_ts,
+        observation_utc_ts,
         aqi,
         co,
         no,
