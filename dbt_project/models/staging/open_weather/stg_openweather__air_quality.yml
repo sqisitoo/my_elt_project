@@ -5,12 +5,12 @@ models:
     description: >
       Staged air quality observations from the OpenWeather Air Pollution API.
       Each row represents a single observation for a specific coordinate and timestamp.
-      Raw JSON is flattened and typed; surrogate key is generated from lat, lon, and observation_ts.
+      Raw JSON is flattened and typed; surrogate key is generated from lat, lon, and observation_utc_ts.
       When _raw_loaded_at values are equal, the record from the lexicographically larger source file name is selected.
 
     columns:
       - name: air_quality_id
-        description: "Surrogate key generated from lat, lon, and observation_ts."
+        description: "Surrogate key generated from lat, lon, and observation_utc_ts."
         data_tests:
           - unique
           - not_null
@@ -25,7 +25,7 @@ models:
         data_tests:
           - not_null
 
-      - name: observation_ts
+      - name: observation_utc_ts
         description: "UTC timestamp of the air quality observation."
         data_tests:
           - not_null
@@ -72,5 +72,5 @@ models:
       - dbt_utils.recency:
           arguments:
             datepart: day
-            field: observation_ts
+            field: observation_utc_ts
             interval: 2

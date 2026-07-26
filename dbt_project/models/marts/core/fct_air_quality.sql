@@ -3,7 +3,7 @@ with staging_air as (
         air_quality_id,
         latitude,
         longitude,
-        observation_ts,
+        observation_utc_ts,
         aqi,
         co,
         no,
@@ -29,7 +29,7 @@ joined as (
     select
         s.air_quality_id,
         l.location_id,
-        s.observation_ts,
+        s.observation_utc_ts,
         s.aqi,
         s.co,
         s.no,

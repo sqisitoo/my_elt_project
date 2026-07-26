@@ -20,7 +20,7 @@ models:
                 to: ref('dim_location')
                 field: location_id
 
-      - name: observation_ts
+      - name: observation_utc_ts
         description: "UTC timestamp of the air quality observation."
         data_tests:
           - not_null
