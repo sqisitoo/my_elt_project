@@ -91,7 +91,7 @@ def weather_snowflake_dag():
     )
 
     run_dbt_build = BashOperator(
-        task_id="run_dbt_build", bash_command=build_dbt_command("build", "+stg_openweather__weather")
+        task_id="run_dbt_build", bash_command=build_dbt_command("build", "+fct_weather")
     )
 
     get_cities_config_task = get_cities_config()

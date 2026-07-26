@@ -5,7 +5,7 @@ DAGS_FOLDER = "dags"
 DAG_ID = "weather_snowflake_dag"
 # Airflow-to-dbt orchestration contract for the weather pipeline.
 FRESHNESS_SELECTOR = "source:openweather_weather"
-BUILD_SELECTOR = "+stg_openweather__weather"
+BUILD_SELECTOR = "+fct_weather"
 
 
 @pytest.fixture(scope="module")
