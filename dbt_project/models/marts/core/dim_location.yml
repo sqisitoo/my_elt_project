@@ -2,20 +2,47 @@ version: 2
 
 models:
   - name: dim_location
-    description: "Dimension table containing configured locations for air quality observations."
+    description: >
+      Location dimension for configured cities.
+      Grain: one row per configured city and its rounded coordinate pair
+      (city_name + latitude + longitude).
+      Rows pass through from stg_internal__locations unchanged. Facts do not
+      join on location_id - they resolve it by matching rounded
+      latitude/longitude, so the coordinate pair is the de facto natural key
+      of this dimension.
 
     columns:
       - name: location_id
-        description: "Surrogate key uniquely identifying each configured location."
+        description: >
+          Surrogate key uniquely identifying each configured location, generated
+          from city_name, latitude, and longitude after rounding.
+          TRAP: the key is derived, not assigned, so renaming a city or nudging
+          a coordinate creates a new location_id for what a human may consider
+          the same place.
         data_tests:
           - unique
           - not_null
 
       - name: city_name
-        description: "Name of the city where the location is situated."
+        description: >
+          Configured city label from the cities_config seed. It contributes to
+          location_id, so changing it creates a new logical location even when
+          the coordinates are unchanged.
 
       - name: latitude
-        description: "Latitude coordinate of the location."
+        description: >
+          North-south coordinate in decimal degrees, rounded to 4 decimals
+          upstream in stg_internal__locations. TRAP: that rounding is the match
+          key facts use. A coordinate that fails to match its OpenWeather
+          counterpart at 4 dp raises nothing - the fact's left join yields NULL
+          location_id, caught only by the not_null/relationships tests on
+          related fact tables.
 
       - name: longitude
-        description: "Longitude coordinate of the location."
+        description: >
+          East-west coordinate in decimal degrees, rounded to 4 decimals
+          upstream in stg_internal__locations. TRAP: that rounding is the match
+          key facts use. A coordinate that fails to match its OpenWeather
+          counterpart at 4 dp raises nothing - the fact's left join yields NULL
+          location_id, caught only by the not_null/relationships tests on
+          related fact tables.
