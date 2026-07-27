@@ -3,13 +3,6 @@
 -- Missing or duplicate hours make daily aggregates and cross-day comparisons
 -- unreliable: averages use an incomplete sample, totals can be understated, and
 -- hourly extremes may be missed.
-
--- TEMPORARY: The weather client keeps records at `end_ts` (`record["dt"] <= end_ts`),
--- while Airflow daily data intervals are half-open: [data_interval_start, data_interval_end).
--- Each run therefore loads midnight from the following UTC date. Until the client uses
--- `< end_ts`, the latest date has only that one row, so this completeness check warns.
-{{ config(severity='warn') }}
-
 with daily_counts as (
     select
         location_id,
