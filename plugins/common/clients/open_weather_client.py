@@ -205,7 +205,7 @@ class OpenWeatherApiClient:
                 )
                 break
 
-            hourly_in_range = [record for record in hourly if record["dt"] <= end_ts]
+            hourly_in_range = [record for record in hourly if record["dt"] < end_ts]
 
             data["data"] = hourly_in_range
             data.pop("next", None)
