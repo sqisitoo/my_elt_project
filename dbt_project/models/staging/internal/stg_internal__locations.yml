@@ -29,17 +29,11 @@ models:
           - not_null
 
       - name: latitude
-        description: >
-          North-south coordinate in decimal degrees, rounded to four decimal
-          places. This precision is part of the join contract with OpenWeather
-          observations; do not use the raw seed precision for those joins.
+        description: "{{ doc('round_coordinate_contract__latitude') }}"
         data_tests:
           - not_null
 
       - name: longitude
-        description: >
-          East-west coordinate in decimal degrees, rounded to four decimal
-          places. This precision is part of the join contract with OpenWeather
-          observations; do not use the raw seed precision for those joins.
+        description: "{{ doc('round_coordinate_contract__longitude') }}"
         data_tests:
           - not_null

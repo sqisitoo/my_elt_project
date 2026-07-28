@@ -21,16 +21,12 @@ models:
           - not_null
 
       - name: latitude
-        description: >
-          Latitude of the observation point, rounded to 4 decimals. Together with
-          longitude and observation_utc_ts, this defines the model grain.
+        description: "{{ doc('round_coordinate_contract__latitude') }}"
         data_tests:
           - not_null
 
       - name: longitude
-        description: >
-          Longitude of the observation point, rounded to 4 decimals. Together with
-          latitude and observation_utc_ts, this defines the model grain.
+        description: "{{ doc('round_coordinate_contract__longitude') }}"
         data_tests:
           - not_null
 

@@ -30,19 +30,7 @@ models:
           the coordinates are unchanged.
 
       - name: latitude
-        description: >
-          North-south coordinate in decimal degrees, rounded to 4 decimals
-          upstream in stg_internal__locations. TRAP: that rounding is the match
-          key facts use. A coordinate that fails to match its OpenWeather
-          counterpart at 4 dp raises nothing - the fact's left join yields NULL
-          location_id, caught only by the not_null/relationships tests on
-          related fact tables.
+        description: "{{ doc('round_coordinate_contract__latitude') }}"
 
       - name: longitude
-        description: >
-          East-west coordinate in decimal degrees, rounded to 4 decimals
-          upstream in stg_internal__locations. TRAP: that rounding is the match
-          key facts use. A coordinate that fails to match its OpenWeather
-          counterpart at 4 dp raises nothing - the fact's left join yields NULL
-          location_id, caught only by the not_null/relationships tests on
-          related fact tables.
+        description: "{{ doc('round_coordinate_contract__longitude') }}"
