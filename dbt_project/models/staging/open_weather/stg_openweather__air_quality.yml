@@ -53,44 +53,84 @@ models:
         description: >
           Carbon monoxide concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
 
       - name: "no"
         description: >
           Nitrogen monoxide concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
 
       - name: no2
         description: >
           Nitrogen dioxide concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
 
       - name: o3
         description: >
           Ozone concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
 
       - name: so2
         description: >
           Sulphur dioxide concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
 
       - name: pm2_5
         description: >
           Fine particulate matter concentration for particles with aerodynamic
           diameter up to 2.5 micrometres, measured in micrograms per cubic metre
           (ug/m^3). Non-additive: use AVG, MIN, or MAX for a period, never SUM.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
 
       - name: pm10
         description: >
           Particulate matter concentration for particles with aerodynamic
           diameter up to 10 micrometres, measured in micrograms per cubic metre
           (ug/m^3). Non-additive: use AVG, MIN, or MAX for a period, never SUM.
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
 
       - name: nh3
         description: >
           Ammonia concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
-
+        data_tests:
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
+                
       - name: _source_file
         description: >
           S3 object key from which the raw row was loaded. Used as a deterministic
