@@ -4,34 +4,47 @@ models:
   - name: stg_openweather__weather
     description: >
       Staged weather observations from the OpenWeather One Call API 4.0.
-      Each row represents a single observation for a specific coordinate and timestamp.
-      Raw JSON is flattened and typed; surrogate key is generated from lat, lon, and observation_utc_ts.
-      When _raw_loaded_at values are equal, the record from the lexicographically larger source file name is selected.
+      Grain: one row per rounded coordinate pair per hour
+      (latitude + longitude + observation_utc_ts)
+      Raw JSON is flattened, typed, coordinates are rounded to 4 decimals, and
+      duplicate rows with the same business grain are resolved deterministically
+      by the latest load metadata.
 
     columns:
       - name: weather_id
-        description: "Surrogate key generated from lat, lon, and observation_utc_ts."
+        description: >
+          Surrogate key uniquely identifying each staged weather observation,
+          generated as a hash of rounded latitude, rounded longitude, and
+          observation_utc_ts.
         data_tests:
           - unique
           - not_null
 
       - name: latitude
-        description: "Latitude of the observation point, rounded to 4 decimals."
+        description: >
+          Latitude of the observation point, rounded to 4 decimals. Together with
+          longitude and observation_utc_ts, this defines the model grain.
         data_tests:
           - not_null
 
       - name: longitude
-        description: "Longitude of the observation point, rounded to 4 decimals."
+        description: >
+          Longitude of the observation point, rounded to 4 decimals. Together with
+          latitude and observation_utc_ts, this defines the model grain.
         data_tests:
           - not_null
 
       - name: observation_utc_ts
-        description: "UTC timestamp of the weather observation."
+        description: >
+          UTC timestamp marking the observed hour for the weather snapshot.
+          Together with latitude and longitude, this defines the model grain.
         data_tests:
           - not_null
 
       - name: cloudiness_percentage
-        description: "Cloudiness, %."
+        description: >
+          Cloud cover, expressed as the percentage of the sky obscured by clouds.
+          Non-additive: use AVG or MAX for a period, never SUM.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
@@ -41,25 +54,36 @@ models:
           - not_null
 
       - name: temperature_celsius
-        description: "Air temperature, °C."
+        description: >
+          Air temperature, degrees Celsius. Non-additive: use AVG for a period,
+          never SUM. This is an OpenWeather model output for the coordinate, not
+          a station reading.
         data_tests:
           - not_null
 
 
       - name: temperature_feels_like_celsius
-        description: "Perceived temperature accounting for human perception, °C."
+        description: >
+          Feels-like temperature, degrees Celsius, combining temperature,
+          humidity, and wind into a comfort-oriented source metric.
+          Non-additive: use AVG for a period, never SUM.
         data_tests:
           - not_null:
               config:
                 severity: warn
 
       - name: pressure_hPa
-        description: "Atmospheric pressure at sea level, hPa."
+        description: >
+          Atmospheric pressure at sea level, hectopascals.
+          Non-additive: use AVG, MIN, or MAX depending on the analysis, never
+          SUM.
         data_tests:
           - not_null
 
       - name: humidity_percentage
-        description: "Humidity, %."
+        description: >
+          Relative humidity, percent. Non-additive: use AVG, MIN, or MAX
+          depending on the analysis, never SUM.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
@@ -69,21 +93,29 @@ models:
           - not_null
 
       - name: dew_point_temperature_celsius
-        description: "Dew point temperature, °C."
+        description: >
+          Dew point temperature, degrees Celsius: the temperature at which water
+          vapour begins to condense. Non-additive: use AVG for a period, never
+          SUM.
         data_tests:
           - not_null:
               config:
                 severity: warn
 
       - name: uv_index
-        description: "UV index."
+        description: >
+          Ultraviolet index, a unitless measure of expected UV radiation
+          intensity. Non-additive: use AVG or MAX for a period, never SUM.
         data_tests:
           - not_null:
               config:
                 severity: warn
 
       - name: visibility_meter
-        description: "Average visibility, meters."
+        description: >
+          Average horizontal visibility, metres. Non-additive: use AVG or MIN
+          for a period, never SUM. TRAP: OpenWeather caps this value at
+          10,000 metres, so 10,000 means "10 km or more", not an exact reading.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
@@ -94,7 +126,9 @@ models:
                 severity: warn
 
       - name: wind_speed_metre_per_sec
-        description: "Wind speed, meter/sec."
+        description: >
+          Wind speed, metres per second. Non-additive: use AVG or MAX for a
+          period, never SUM.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
@@ -103,7 +137,12 @@ models:
           - not_null
 
       - name: wind_direction_degree
-        description: "Wind direction, degrees (meteorological)."
+        description: >
+          Wind direction, meteorological degrees. 0/360 = wind from the north,
+          90 = from the east. TRAP: do not average this directly, because the
+          scale wraps and AVG(350, 10) = 180 points in the opposite direction.
+          Aggregate by compass sector or average as vectors together with
+          wind_speed_metre_per_sec.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
@@ -115,45 +154,73 @@ models:
                 severity: warn
 
       - name: wind_gust_metre_per_sec
-        description: "Wind gust speed, meter/sec."
+        description: >
+          Wind gust speed, metres per second, where OpenWeather provides it.
+          Non-additive: use AVG or MAX for a period, never SUM.
+          TRAP: NULL means the source did not return a gust value, not
+          necessarily that gust speed was zero.
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
-                inclusive: true
 
       - name: rain_1h_mm
-        description: "Rain volume for the last hour, mm."
+        description: >
+          Rain volume for the last hour, millimetres. Additive: SUM gives total
+          rainfall. TRAP: NULL means no rain was reported, not zero. AVG over
+          non-NULL rows answers "average rainfall in hours when it rained", not
+          "average rainfall per hour overall".
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
 
       - name: snow_1h_mm
-        description: "Snow volume for the last hour, mm."
+        description: >
+          Snow volume for the last hour, millimetres. Additive: SUM gives total
+          snowfall. TRAP: NULL means no snow was reported, not zero. AVG over
+          non-NULL rows answers "average snowfall in hours when it snowed", not
+          "average snowfall per hour overall".
         data_tests:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
 
       - name: weather_description
-        description: "Human-readable weather condition description."
+        description: >
+          Human-readable description of the primary OpenWeather condition.
+          TRAP: this model keeps only weather[0] from the source array, so any
+          secondary condition is dropped before the warehouse table exists.
 
       - name: weather_icon_id
-        description: "Weather icon id."
+        description: >
+          OpenWeather icon code for the primary weather condition.
+          TRAP: this model keeps only weather[0] from the source array, so the
+          icon reflects just the first condition returned by the API.
 
       - name: weather_group
-        description: "Group of weather parameters (Rain, Snow, Clouds etc.)."
+        description: >
+          High-level OpenWeather condition group for the primary weather
+          condition, such as Rain, Snow, or Clouds.
+          TRAP: this model keeps only weather[0] from the source array, so any
+          additional concurrent condition groups are dropped.
 
       - name: weather_condition_id
-        description: "Weather condition id."
+        description: >
+          OpenWeather weather-condition code for the primary condition. This is a
+          categorical identifier, not a numeric measure.
+          TRAP: this model keeps only weather[0] from the source array, so the
+          code does not preserve secondary conditions.
 
       - name: _source_file
-        description: "S3 source file path from which the record was loaded."
+        description: >
+          S3 object key from which the raw row was loaded. Used as a deterministic
+          tie-breaker when duplicate business keys share the same _raw_loaded_at.
 
       - name: _stg_loaded_at
-        description: "Timestamp when the record was loaded into the warehouse."
-    
+        description: >
+          Timestamp when this dbt staging model was built for the current run.
+
     data_tests:
       - dbt_utils.recency:
           arguments:

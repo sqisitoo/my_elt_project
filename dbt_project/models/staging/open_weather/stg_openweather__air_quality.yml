@@ -4,34 +4,49 @@ models:
   - name: stg_openweather__air_quality
     description: >
       Staged air quality observations from the OpenWeather Air Pollution API.
-      Each row represents a single observation for a specific coordinate and timestamp.
-      Raw JSON is flattened and typed; surrogate key is generated from lat, lon, and observation_utc_ts.
-      When _raw_loaded_at values are equal, the record from the lexicographically larger source file name is selected.
+      Grain: one row per rounded coordinate pair per hour
+      (latitude + longitude + observation_utc_ts)
+      Raw JSON is flattened, typed, coordinates are rounded to 4 decimals, and
+      duplicate rows with the same business grain are resolved deterministically
+      by the latest load metadata.
 
     columns:
       - name: air_quality_id
-        description: "Surrogate key generated from lat, lon, and observation_utc_ts."
+        description: >
+          Surrogate key uniquely identifying each staged air quality observation,
+          generated as a hash of rounded latitude, rounded longitude, and
+          observation_utc_ts.
         data_tests:
           - unique
           - not_null
 
       - name: latitude
-        description: "Latitude of the observation point."
+        description: >
+          Latitude of the observation point, rounded to 4 decimals. Together with
+          longitude and observation_utc_ts, this defines the model grain.
         data_tests:
           - not_null
 
       - name: longitude
-        description: "Longitude of the observation point."
+        description: >
+          Longitude of the observation point, rounded to 4 decimals. Together with
+          latitude and observation_utc_ts, this defines the model grain.
         data_tests:
           - not_null
 
       - name: observation_utc_ts
-        description: "UTC timestamp of the air quality observation."
+        description: >
+          UTC timestamp marking the observed hour for the air quality snapshot.
+          Together with latitude and longitude, this defines the model grain.
         data_tests:
           - not_null
 
       - name: aqi
-        description: "Air Quality Index (1 = Good, 2 = Fair, 3 = Moderate, 4 = Poor, 5 = Very Poor)."
+        description: >
+          OpenWeather air-quality category code: 1 = Good, 2 = Fair,
+          3 = Moderate, 4 = Poor, 5 = Very Poor. TRAP: this is an ordinal
+          category, not a numeric measure: group or count by it, but do not AVG
+          or SUM it.
         data_tests:
           - accepted_values:
               arguments:
@@ -39,34 +54,55 @@ models:
                 quote: false
 
       - name: co
-        description: "Carbon monoxide concentration, μg/m³."
+        description: >
+          Carbon monoxide concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: "no"
-        description: "Nitrogen monoxide concentration, μg/m³."
+        description: >
+          Nitrogen monoxide concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: no2
-        description: "Nitrogen dioxide concentration, μg/m³."
+        description: >
+          Nitrogen dioxide concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: o3
-        description: "Ozone concentration, μg/m³."
+        description: >
+          Ozone concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: so2
-        description: "Sulphur dioxide concentration, μg/m³."
+        description: >
+          Sulphur dioxide concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: pm2_5
-        description: "Fine particulate matter (PM2.5) concentration, μg/m³."
+        description: >
+          Fine particulate matter concentration for particles with aerodynamic
+          diameter up to 2.5 micrometres, measured in micrograms per cubic metre
+          (ug/m^3). Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: pm10
-        description: "Coarse particulate matter (PM10) concentration, μg/m³."
+        description: >
+          Particulate matter concentration for particles with aerodynamic
+          diameter up to 10 micrometres, measured in micrograms per cubic metre
+          (ug/m^3). Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: nh3
-        description: "Ammonia concentration, μg/m³."
+        description: >
+          Ammonia concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: _source_file
-        description: "S3 source file path from which the record was loaded."
+        description: >
+          S3 object key from which the raw row was loaded. Used as a deterministic
+          tie-breaker when duplicate business keys share the same _raw_loaded_at.
 
       - name: _stg_loaded_at
-        description: "Timestamp when the record was loaded into the warehouse."
+        description: >
+          Timestamp when this dbt staging model was built for the current run.
 
     data_tests:
       - dbt_utils.recency:

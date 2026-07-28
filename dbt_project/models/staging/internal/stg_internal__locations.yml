@@ -2,26 +2,44 @@ version: 2
 
 models:
   - name: stg_internal__locations
-    description: "Staging model for city location configuration."
+    description: >
+      Staged configured locations from the cities_config seed.
+      Grain: one row per configured city and its rounded coordinate pair
+      (city_name + latitude + longitude). Coordinates are rounded to four decimal
+      places so they match the join keys used by OpenWeather staging models.
 
     columns:
       - name: location_id
-        description: "Surrogate key generated for each configured location."
+        description: >
+          Surrogate key over city_name + latitude + longitude (after rounding
+          to 4 dp). TRAP: the key is derived, not assigned — editing a city
+          label or nudging a coordinate in the cities_config seed produces a
+          different location_id for what a human calls the same place, and
+          nothing in the data links the old key to the new one.
         data_tests:
           - unique
           - not_null
 
       - name: city_name
-        description: "City name from internal configuration."
+        description: >
+          Configured city label from the cities_config seed. It contributes to
+          location_id, so changing it creates a new logical location even when
+          the coordinates are unchanged.
         data_tests:
           - not_null
 
       - name: latitude
-        description: "Latitude coordinate of the city in decimal degrees."
+        description: >
+          North-south coordinate in decimal degrees, rounded to four decimal
+          places. This precision is part of the join contract with OpenWeather
+          observations; do not use the raw seed precision for those joins.
         data_tests:
           - not_null
 
       - name: longitude
-        description: "Longitude coordinate of the city in decimal degrees."
+        description: >
+          East-west coordinate in decimal degrees, rounded to four decimal
+          places. This precision is part of the join contract with OpenWeather
+          observations; do not use the raw seed precision for those joins.
         data_tests:
           - not_null
