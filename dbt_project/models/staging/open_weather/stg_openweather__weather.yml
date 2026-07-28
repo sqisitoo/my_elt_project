@@ -64,9 +64,7 @@ models:
           humidity, and wind into a comfort-oriented source metric.
           Non-additive: use AVG for a period, never SUM.
         data_tests:
-          - not_null:
-              config:
-                severity: warn
+          - not_null
 
       - name: pressure_hPa
         description: >
@@ -75,6 +73,10 @@ models:
           SUM.
         data_tests:
           - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
 
       - name: humidity_percentage
         description: >
@@ -94,18 +96,18 @@ models:
           vapour begins to condense. Non-additive: use AVG for a period, never
           SUM.
         data_tests:
-          - not_null:
-              config:
-                severity: warn
+          - not_null
 
       - name: uv_index
         description: >
           Ultraviolet index, a unitless measure of expected UV radiation
           intensity. Non-additive: use AVG or MAX for a period, never SUM.
         data_tests:
-          - not_null:
-              config:
-                severity: warn
+          - not_null
+          - dbt_utils.accepted_range:
+              arguments:
+                min_value: 0
+                inclusive: true
 
       - name: visibility_meter
         description: >
@@ -116,10 +118,9 @@ models:
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
+                max_value: 10000
                 inclusive: true
-          - not_null:
-              config:
-                severity: warn
+          - not_null
 
       - name: wind_speed_metre_per_sec
         description: >
@@ -145,9 +146,7 @@ models:
                 min_value: 0
                 max_value: 360
                 inclusive: true
-          - not_null:
-              config:
-                severity: warn
+          - not_null
 
       - name: wind_gust_metre_per_sec
         description: >
@@ -187,19 +186,25 @@ models:
           Human-readable description of the primary OpenWeather condition.
           TRAP: this model keeps only weather[0] from the source array, so any
           secondary condition is dropped before the warehouse table exists.
+        data_tests:
+          - not_null
 
       - name: weather_icon_id
         description: >
           OpenWeather icon code for the primary weather condition.
           TRAP: this model keeps only weather[0] from the source array, so the
           icon reflects just the first condition returned by the API.
-
+        data_tests:
+          - not_null
+    
       - name: weather_group
         description: >
           High-level OpenWeather condition group for the primary weather
           condition, such as Rain, Snow, or Clouds.
           TRAP: this model keeps only weather[0] from the source array, so any
           additional concurrent condition groups are dropped.
+        data_tests:
+          - not_null
 
       - name: weather_condition_id
         description: >
@@ -207,11 +212,15 @@ models:
           categorical identifier, not a numeric measure.
           TRAP: this model keeps only weather[0] from the source array, so the
           code does not preserve secondary conditions.
+        data_tests:
+          - not_null
 
       - name: _source_file
         description: >
           S3 object key from which the raw row was loaded. Used as a deterministic
           tie-breaker when duplicate business keys share the same _raw_loaded_at.
+        data_tests:
+          - not_null
 
       - name: _stg_loaded_at
         description: >

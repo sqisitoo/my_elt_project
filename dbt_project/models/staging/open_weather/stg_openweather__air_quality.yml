@@ -44,6 +44,7 @@ models:
           category, not a numeric measure: group or count by it, but do not AVG
           or SUM it.
         data_tests:
+          - not_null
           - accepted_values:
               arguments:
                 values: [1, 2, 3, 4, 5]
@@ -54,6 +55,7 @@ models:
           Carbon monoxide concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
@@ -64,6 +66,7 @@ models:
           Nitrogen monoxide concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
@@ -74,6 +77,7 @@ models:
           Nitrogen dioxide concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
@@ -84,6 +88,7 @@ models:
           Ozone concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
@@ -94,6 +99,7 @@ models:
           Sulphur dioxide concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
@@ -105,6 +111,7 @@ models:
           diameter up to 2.5 micrometres, measured in micrograms per cubic metre
           (ug/m^3). Non-additive: use AVG, MIN, or MAX for a period, never SUM.
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
@@ -116,6 +123,7 @@ models:
           diameter up to 10 micrometres, measured in micrograms per cubic metre
           (ug/m^3). Non-additive: use AVG, MIN, or MAX for a period, never SUM.
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
@@ -126,15 +134,18 @@ models:
           Ammonia concentration, micrograms per cubic metre (ug/m^3).
           Non-additive: use AVG, MIN, or MAX for a period, never SUM.
         data_tests:
+          - not_null
           - dbt_utils.accepted_range:
               arguments:
                 min_value: 0
                 inclusive: true
-                
+
       - name: _source_file
         description: >
           S3 object key from which the raw row was loaded. Used as a deterministic
           tie-breaker when duplicate business keys share the same _raw_loaded_at.
+        data_tests:
+          - not_null
 
       - name: _stg_loaded_at
         description: >
