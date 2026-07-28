@@ -1,0 +1,21 @@
+version: 2
+
+macros:
+  - name: round_coordinate
+    description: >
+      Rounds a latitude or longitude expression to 4 decimal places.
+      This is a warehouse contract, not a presentation choice: dbt models use
+      the rounded value when generating surrogate keys and when joining
+      OpenWeather observations to configured locations.
+      The shared doc blocks round_coordinate_contract__latitude and
+      round_coordinate_contract__longitude are the column-documentation surface
+      of this same contract and must stay in sync with it.
+      TRAP: changing the precision changes historical keys and can break joins
+      across staging and mart models. If the precision ever changes, update this
+      macro once and roll the change out as a coordinated contract migration.
+    arguments:
+      - name: column_name
+        type: string
+        description: >
+          SQL expression for the latitude or longitude value that must be
+          normalized to the shared warehouse precision.
