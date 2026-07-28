@@ -4,11 +4,12 @@ models:
   - name: stg_openweather__air_quality
     description: >
       Staged air quality observations from the OpenWeather Air Pollution API.
-      Grain: one row per rounded coordinate pair per hour
+      Grain: one row per coordinate pair at the shared coordinate precision per hour
       (latitude + longitude + observation_utc_ts)
-      Raw JSON is flattened, typed, coordinates are rounded to 4 decimals, and
-      duplicate rows with the same business grain are resolved deterministically
-      by the latest load metadata.
+      Raw JSON is flattened and typed, coordinates are normalized via the
+      round_coordinate contract, and duplicate rows with the same business grain
+      are resolved deterministically for reproducible builds using load metadata
+      as a tie-breaker, not as proof that one row is semantically "newer".
 
     columns:
       - name: air_quality_id

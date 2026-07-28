@@ -4,9 +4,10 @@ models:
   - name: stg_internal__locations
     description: >
       Staged configured locations from the cities_config seed.
-      Grain: one row per configured city and its rounded coordinate pair
-      (city_name + latitude + longitude). Coordinates are rounded to four decimal
-      places so they match the join keys used by OpenWeather staging models.
+      Grain: one row per configured city and its coordinate pair at the shared
+      coordinate precision (city_name + latitude + longitude). Coordinates are
+      normalized via the round_coordinate contract so they match the join keys
+      used by OpenWeather staging models.
 
     columns:
       - name: location_id
