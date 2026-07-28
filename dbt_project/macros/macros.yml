@@ -10,9 +10,12 @@ macros:
       The shared doc blocks round_coordinate_contract__latitude and
       round_coordinate_contract__longitude are the column-documentation surface
       of this same contract and must stay in sync with it.
-      TRAP: changing the precision changes historical keys and can break joins
-      across staging and mart models. If the precision ever changes, update this
-      macro once and roll the change out as a coordinated contract migration.
+      TRAP: if one model drifts away from this shared precision, dbt will
+      usually still build successfully. The failure mode is semantic: joins to
+      dim_location can start returning NULL location_id, and downstream fact
+      tests catch it only after the contract has already been broken. If the
+      precision ever changes, update this macro and the shared doc blocks
+      together and roll the change out as a coordinated contract migration.
     arguments:
       - name: column_name
         type: string
