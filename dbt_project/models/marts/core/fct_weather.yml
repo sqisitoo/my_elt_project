@@ -13,7 +13,7 @@ models:
       - name: weather_id
         description: > 
           Surrogate key uniquely identifying each weather observation
-          generated as a hash of three columns: 'latitude', 'longitude', and 'observation_utc_ts' (observation timestamp)
+          generated as a hash of three columns: 'latitude', 'longitude', and 'observation_utc_ts' (hourly observation timestamp)
         data_tests:
           - unique
           - not_null

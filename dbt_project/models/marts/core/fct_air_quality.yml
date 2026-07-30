@@ -2,17 +2,30 @@ version: 2
 
 models:
   - name: fct_air_quality
-    description: "Fact table containing air quality observations and pollutant concentrations for configured locations."
+    description: >
+      Atomic fact table of air quality observations.
+      Grain: one row per location per hour
+      (location_id + observation_utc_ts)
+      Measures pass through from stg_openweather__air_quality unchanged - no
+      aggregation and no derived columns. The only transformation is replacing
+      latitude/longitude with location_id from dim_location.
 
     columns:
       - name: air_quality_id
-        description: "Surrogate key uniquely identifying each air quality observation."
+        description: >
+          Surrogate key uniquely identifying each air quality observation,
+          inherited from stg_openweather__air_quality and generated as a hash of
+          rounded latitude, rounded longitude, and observation_utc_ts.
         data_tests:
           - unique
           - not_null
-    
+
       - name: location_id
-        description: "Surrogate key generated for each configured location."
+        description: >
+          Foreign key from location dimension.
+          TRAP: this value is produced by a left join on rounded coordinates, so
+          any mismatch between staging coordinates and dim_location makes
+          location_id NULL rather than dropping the row silently.
         data_tests:
           - not_null
           - relationships:
@@ -21,33 +34,62 @@ models:
                 field: location_id
 
       - name: observation_utc_ts
-        description: "UTC timestamp of the air quality observation."
+        description: "UTC timestamp marking the observed hour for the air quality snapshot."
         data_tests:
           - not_null
 
       - name: aqi
-        description: "Air Quality Index (1 = Good, 2 = Fair, 3 = Moderate, 4 = Poor, 5 = Very Poor)."
+        description: >
+          OpenWeather air-quality category code: 1 = Good, 2 = Fair,
+          3 = Moderate, 4 = Poor, 5 = Very Poor. TRAP: this is an ordinal
+          category, not a numeric measure: group or count by it, but do not AVG
+          or SUM it.
 
       - name: co
-        description: "Carbon monoxide concentration, μg/m³."
+        description: >
+          Carbon monoxide concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: "no"
-        description: "Nitrogen monoxide concentration, μg/m³."
+        description: >
+          Nitrogen monoxide concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: no2
-        description: "Nitrogen dioxide concentration, μg/m³."
+        description: >
+          Nitrogen dioxide concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: o3
-        description: "Ozone concentration, μg/m³."
+        description: >
+          Ozone concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: so2
-        description: "Sulphur dioxide concentration, μg/m³."
+        description: >
+          Sulphur dioxide concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: pm2_5
-        description: "Fine particulate matter (PM2.5) concentration, μg/m³."
+        description: >
+          Fine particulate matter concentration for particles with aerodynamic
+          diameter up to 2.5 micrometres, measured in micrograms per cubic metre
+          (ug/m^3). Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: pm10
-        description: "Coarse particulate matter (PM10) concentration, μg/m³."
+        description: >
+          Particulate matter concentration for particles with aerodynamic
+          diameter up to 10 micrometres, measured in micrograms per cubic metre
+          (ug/m^3). Non-additive: use AVG, MIN, or MAX for a period, never SUM.
 
       - name: nh3
-        description: "Ammonia concentration, μg/m³."
+        description: >
+          Ammonia concentration, micrograms per cubic metre (ug/m^3).
+          Non-additive: use AVG, MIN, or MAX for a period, never SUM.
+    
+    data_tests:
+      - dbt_utils.unique_combination_of_columns:
+          arguments:
+            combination_of_columns:
+              - location_id
+              - observation_utc_ts

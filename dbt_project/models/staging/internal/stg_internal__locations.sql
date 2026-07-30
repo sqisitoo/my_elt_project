@@ -14,8 +14,8 @@ casted_and_renamed as (
 rounded as (
     select
         city_name,
-        round(latitude, 4) as latitude,
-        round(longitude, 4) as longitude
+        {{ round_coordinate('latitude') }} as latitude,
+        {{ round_coordinate('longitude') }} as longitude
     from casted_and_renamed
 ),
 
