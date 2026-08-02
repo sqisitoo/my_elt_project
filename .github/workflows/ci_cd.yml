@@ -146,6 +146,10 @@ jobs:
     permissions:
       contents: read
       id-token: write
+    # Prevent overlapping ECS deployments from concurrent workflow runs.
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
 
     steps:
       - name: Configure AWS credentials
