@@ -18,17 +18,19 @@ test:
 	pytest
 
 lint_tf:
+	@set -eo pipefail
 	terraform -chdir=terraform fmt -check -recursive
 	terraform -chdir=terraform init -backend=false -input=false
 	terraform -chdir=terraform validate
 
 $(DBT_BIN):
-	set -eo pipefail
+	@set -eo pipefail
 	python3 -m venv $(DBT_VENV)
 	$(DBT_PIP) install --upgrade pip
 	$(DBT_PIP) install dbt-snowflake
 
 lint_dbt: $(DBT_BIN)
+	@set -eo pipefail
 	$(DBT_BIN) deps --project-dir dbt_project --profiles-dir dbt_project --target ci
 	$(DBT_BIN) parse --project-dir dbt_project --profiles-dir dbt_project --target ci
 
