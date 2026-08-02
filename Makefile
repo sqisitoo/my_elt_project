@@ -1,9 +1,12 @@
 .ONESHELL:
-.PHONY: lint test build check install_deps
+.PHONY: lint lint_tf lint_dbt test build check install_deps
 SHELL:= /bin/bash
 
 AIRFLOW_VERSION ?= 3.1.6
 PYTHON_VERSION ?= 3.10
+DBT_VENV ?= dbt_venv
+DBT_BIN := $(DBT_VENV)/bin/dbt
+DBT_PIP := $(DBT_VENV)/bin/pip
 
 lint:
 	@set -eo pipefail
@@ -14,7 +17,27 @@ lint:
 test:
 	pytest
 
-check: lint test
+lint_tf:
+	@set -eo pipefail
+	terraform -chdir=terraform fmt -check -recursive
+	terraform -chdir=terraform init -backend=false -input=false
+	terraform -chdir=terraform validate
+
+$(DBT_BIN):
+	@set -eo pipefail
+	python3 -m venv $(DBT_VENV)
+	$(DBT_PIP) install --upgrade pip
+	$(DBT_PIP) install dbt-snowflake
+
+lint_dbt: $(DBT_BIN)
+	@set -eo pipefail
+	$(DBT_BIN) deps --project-dir dbt_project --profiles-dir dbt_project --target ci
+	$(DBT_BIN) parse --project-dir dbt_project --profiles-dir dbt_project --target ci
+
+
+# Local development entrypoint inside the dev container.
+# lint_tf stays separate because the dev container does not have Terraform access;
+check: lint lint_dbt test 
 
 build:
 	docker build -f docker/airflow/Dockerfile -t my-pet-project:latest .

@@ -1,4 +1,6 @@
 terraform {
+  # The CI version is specified by the setup-terraform step in .github/workflows/ci_cd.yml
+  required_version = "~> 1.14.0"
   required_providers {
     aws = {
       source  = "hashicorp/aws"

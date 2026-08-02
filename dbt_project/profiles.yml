@@ -22,4 +22,16 @@ dbt_project:
       user: "{{ env_var('SNOWFLAKE_USER') }}"
       warehouse: "{{ env_var('SNOWFLAKE_WAREHOUSE') }}"
       threads: 4 
+    # CI-only profile (dbt parse): dummy values, no real Snowflake connection is made.
+    ci:
+      type: snowflake
+      account: account
+      database: database
+      password: password
+      role: role
+      schema: schema
+      user: user
+      warehouse: warehouse
+      threads: 1
+
 
