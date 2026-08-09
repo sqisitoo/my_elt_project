@@ -13,6 +13,9 @@ logger = logging.getLogger(__name__)
 
 
 class S3Service:
+    # AWS rejects a DeleteObjects request carrying more than 1000 keys
+    _DELETE_BATCH_SIZE = 1000
+
     def __init__(self, bucket_name: str, s3_client: "BaseClient"):
         self._bucket = bucket_name
         self._client = s3_client
@@ -25,36 +28,6 @@ class S3Service:
             return cast(dict[str, Any], json.loads(json_string))
         except Exception as err:
             logger.error(f"Failed to load json from s3://{self._bucket}/{key}. Error: {err}")
-            raise
-
-    def load_parquet(self, key: str) -> pd.DataFrame:
-        try:
-            response = self._client.get_object(Bucket=self._bucket, Key=key)
-
-            return pd.read_parquet(io.BytesIO(response["Body"].read()))
-
-        except Exception as err:
-            logger.error(f"Failed to load parquet from s3://{self._bucket}/{key}. Error: {err}")
-            raise
-
-    def save_df_as_parquet(self, df: pd.DataFrame, key: str) -> None:
-        try:
-            with io.BytesIO() as buffer:
-                df.to_parquet(buffer, index=False, engine="pyarrow")
-
-                buffer.seek(0)
-
-                self._client.put_object(
-                    Bucket=self._bucket,
-                    Key=key,
-                    Body=buffer.getvalue(),
-                    ContentType="application/vnd.apache.parquet",
-                )
-
-                logger.info(f"Successfully saved Parquet to s3://{self._bucket}/{key}")
-
-        except Exception:
-            logger.error(f"Failed to save Parquet to s3://{self._bucket}/{key}")
             raise
 
     def save_dict_as_json(self, data: dict[str, Any], key: str) -> None:
@@ -71,22 +44,30 @@ class S3Service:
             logger.error(f"Failed to save JSON to s3://{self._bucket}/{key}")
             raise
 
-    def delete_object(self, key: str) -> None:
-        try:
-            logger.debug(f"Checking existence of s3://{self._bucket}/{key} before delete")
-            self._client.head_object(Bucket=self._bucket, Key=key)
 
-            logger.info(f"Deleting object s3://{self._bucket}/{key}")
-            self._client.delete_object(Bucket=self._bucket, Key=key)
-            logger.info(f"Successfully deleted s3://{self._bucket}/{key}")
+    def list_keys(self, prefix: str) -> list[str]:
+        """
+        List every object key under the given prefix.
 
-        except ClientError as err:
-            error_code = err.response.get("Error", {}).get("Code")
-            if error_code in ("404", "NoSuchKey", "NotFound"):
-                logger.warning(f"Object not found for deletion: s3://{self._bucket}/{key}")
-                return
-            logger.error(f"Failed to delete s3://{self._bucket}/{key}. Error: {err}")
-            raise
-        except Exception as err:
-            logger.error(f"Failed to delete s3://{self._bucket}/{key}. Error: {err}")
-            raise
+        Args:
+            prefix: S3 key prefix to list, e.g. "bronze/weather_data/city=Berlin/".
+
+        Returns:
+            All matching keys, or an empty list if the prefix matches nothing.
+        """
+        # a single list_objects_v2 call returns at most 1000 keys plus a continuation token;
+        # the paginator replays the call until the last page, so callers never act on a
+        # silently truncated listing
+        paginator = self._client.get_paginator("list_objects_v2")
+
+        # "Contents" is absent, not empty, on a page that matched nothing
+        s3_keys = [
+            content["Key"]
+            for page in paginator.paginate(Bucket=self._bucket, Prefix=prefix)
+            for content in page.get("Contents", [])
+        ]
+
+        logger.info(f"Listed {len(s3_keys)} object(s) under s3://{self._bucket}/{prefix}")
+        logger.debug("Keys under %s: %s", prefix, s3_keys)
+
+        return s3_keys
