@@ -56,6 +56,8 @@ def weather_snowflake_dag():
         boto3_client = s3_hook.get_conn()
         s3_service = S3Service(settings.aws.s3_bucket_name, s3_client=boto3_client)  # type: ignore
 
+        actual_datetime = datetime.now()
+
         s3_keys_to_raw_data = extract_weather_data(
             city=city_info["name"],
             lat=city_info["lat"],
@@ -65,6 +67,7 @@ def weather_snowflake_dag():
             start_ts=data_interval_start.timestamp(),
             end_ts=data_interval_end.timestamp(),
             logical_date=logical_date,
+            actual_datetime=actual_datetime,
         )
 
         return {"s3_keys_to_raw_data": s3_keys_to_raw_data, "city": city_info["name"]}

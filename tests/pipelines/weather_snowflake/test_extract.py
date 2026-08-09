@@ -21,6 +21,7 @@ def test_extract_weather_data_single_chunk_success(mock_clients):
 
     city = "Berlin"
     logical_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    actual_datetime = datetime(2025, 1, 1, 0, 5, 0, tzinfo=timezone.utc)
     chunk = {"dt": 1735689600, "temp": 5.0}
     mock_open_weather_client.get_historical_weather_data.return_value = [chunk]
 
@@ -30,7 +31,7 @@ def test_extract_weather_data_single_chunk_success(mock_clients):
         f"year={logical_date.year}/"
         f"month={logical_date.month:02d}/"
         f"day={logical_date.day:02d}/"
-        f"{int(logical_date.timestamp())}_part_1.json"
+        f"{logical_date.strftime('%Y%m%d%H%M%S')}_{actual_datetime.strftime('%Y%m%d%H%M%S')}_part_1.json"
     )
 
     result = extract_weather_data(
@@ -42,6 +43,7 @@ def test_extract_weather_data_single_chunk_success(mock_clients):
         start_ts=1735689600,
         end_ts=1735776000,
         logical_date=logical_date,
+        actual_datetime=actual_datetime,
     )
 
     assert result == [expected_key]
@@ -57,6 +59,7 @@ def test_extract_weather_data_multiple_chunks_success(mock_clients):
 
     city = "Berlin"
     logical_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    actual_datetime = datetime(2025, 1, 1, 0, 5, 0, tzinfo=timezone.utc)
     chunks = [{"dt": 1735689600}, {"dt": 1735693200}, {"dt": 1735696800}]
     mock_open_weather_client.get_historical_weather_data.return_value = chunks
 
@@ -67,7 +70,7 @@ def test_extract_weather_data_multiple_chunks_success(mock_clients):
             f"year={logical_date.year}/"
             f"month={logical_date.month:02d}/"
             f"day={logical_date.day:02d}/"
-            f"{int(logical_date.timestamp())}_part_{i}.json"
+            f"{logical_date.strftime('%Y%m%d%H%M%S')}_{actual_datetime.strftime('%Y%m%d%H%M%S')}_part_{i}.json"
         )
         for i in range(1, 4)
     ]
@@ -81,6 +84,7 @@ def test_extract_weather_data_multiple_chunks_success(mock_clients):
         start_ts=1735689600,
         end_ts=1735776000,
         logical_date=logical_date,
+        actual_datetime=actual_datetime,
     )
 
     assert result == expected_keys
@@ -114,6 +118,7 @@ def test_extract_weather_data_raises_skip_exception_on_empty_data(mock_clients):
             start_ts=1735689600,
             end_ts=1735776000,
             logical_date=logical_date,
+            actual_datetime=datetime(2025, 1, 1, 0, 5, 0, tzinfo=timezone.utc),
         )
 
     mock_s3_service.save_dict_as_json.assert_not_called()
