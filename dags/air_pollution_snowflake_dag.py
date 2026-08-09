@@ -67,7 +67,7 @@ def air_pollution_snowflake_dag():
             s3_service=s3_service,
             start_ts=data_interval_start.timestamp(),
             end_ts=data_interval_end.timestamp(),
-            actual_datetime=actual_datetime
+            actual_datetime=actual_datetime,
         )
 
         return {"s3_key_to_raw_data": s3_key_to_raw_data, "city": city_info["name"]}

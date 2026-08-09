@@ -67,7 +67,7 @@ def weather_snowflake_dag():
             start_ts=data_interval_start.timestamp(),
             end_ts=data_interval_end.timestamp(),
             logical_date=logical_date,
-            actual_datetime=actual_datetime
+            actual_datetime=actual_datetime,
         )
 
         return {"s3_keys_to_raw_data": s3_keys_to_raw_data, "city": city_info["name"]}

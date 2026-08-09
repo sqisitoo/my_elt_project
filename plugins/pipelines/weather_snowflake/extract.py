@@ -19,8 +19,7 @@ def extract_weather_data(
     start_ts: int | float,
     end_ts: int | float,
     logical_date: datetime,
-    actual_datetime: datetime
-    
+    actual_datetime: datetime,
 ) -> list[str]:
     """
     Extract historical weather data from OpenWeatherMap and upload to S3 (bronze layer).
@@ -53,8 +52,8 @@ def extract_weather_data(
 
     s3_keys = []
 
-    logical_ts_nodash = logical_date.strftime('%Y%m%d%H%M%S')
-    actual_ts_nodash = actual_datetime.strftime('%Y%m%d%H%M%S')
+    logical_ts_nodash = logical_date.strftime("%Y%m%d%H%M%S")
+    actual_ts_nodash = actual_datetime.strftime("%Y%m%d%H%M%S")
 
     for ind, chunk in enumerate(
         open_weather_client.get_historical_weather_data(

@@ -19,7 +19,7 @@ def extract_air_pollution_to_s3(
     start_ts: int | float,
     end_ts: int | float,
     logical_date: datetime,
-    actual_datetime: datetime
+    actual_datetime: datetime,
 ) -> str:
     """
     Extract historical air pollution data from OpenWeatherMap and upload to S3 (bronze layer).
@@ -61,8 +61,8 @@ def extract_air_pollution_to_s3(
 
     logger.info(f"Retrieved {len(raw_list)} raw records from API")
 
-    logical_ts_nodash = logical_date.strftime('%Y%m%d%H%M%S')
-    actual_ts_nodash = actual_datetime.strftime('%Y%m%d%H%M%S')
+    logical_ts_nodash = logical_date.strftime("%Y%m%d%H%M%S")
+    actual_ts_nodash = actual_datetime.strftime("%Y%m%d%H%M%S")
 
     # Build a partitioned bronze key for traceable and query-friendly storage.
     s3_key = (
