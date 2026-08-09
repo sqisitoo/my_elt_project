@@ -19,7 +19,8 @@ def extract_weather_data(
     start_ts: int | float,
     end_ts: int | float,
     logical_date: datetime,
-    run_id: str
+    actual_datetime: datetime
+    
 ) -> list[str]:
     """
     Extract historical weather data from OpenWeatherMap and upload to S3 (bronze layer).
@@ -36,7 +37,7 @@ def extract_weather_data(
         start_ts: Start of the extraction window (Unix timestamp).
         end_ts: End of the extraction window (Unix timestamp).
         logical_date: Airflow logical date, used to build the S3 partition path.
-        run_id: Airflow run id, used to uniquely identify each runs
+        actual_datetime: Wall-clock time of the extract call, used to disambiguate S3 keys across re-runs.
 
     Returns:
         List of S3 keys where data was uploaded. Downstream tasks can use these
@@ -52,6 +53,9 @@ def extract_weather_data(
 
     s3_keys = []
 
+    logical_ts_nodash = logical_date.strftime('%Y%m%d%H%M%S')
+    actual_ts_nodash = actual_datetime.strftime('%Y%m%d%H%M%S')
+
     for ind, chunk in enumerate(
         open_weather_client.get_historical_weather_data(
             city=city, lat=lat, lon=lon, start_ts=start_ts, end_ts=end_ts
@@ -63,8 +67,7 @@ def extract_weather_data(
             f"year={logical_date.year}/"
             f"month={logical_date.month:02d}/"
             f"day={logical_date.day:02d}/"
-            f"run_id={run_id}/"
-            f"{int(logical_date.timestamp())}_part_{ind + 1}.json"
+            f"{logical_ts_nodash}_{actual_ts_nodash}_part_{ind + 1}.json"
         )
 
         s3_service.save_dict_as_json(chunk, s3_key)

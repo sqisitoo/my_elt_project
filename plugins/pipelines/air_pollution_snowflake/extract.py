@@ -19,7 +19,7 @@ def extract_air_pollution_to_s3(
     start_ts: int | float,
     end_ts: int | float,
     logical_date: datetime,
-    run_id: str
+    actual_datetime: datetime
 ) -> str:
     """
     Extract historical air pollution data from OpenWeatherMap and upload to S3 (bronze layer).
@@ -37,7 +37,7 @@ def extract_air_pollution_to_s3(
         start_ts: Start of the extraction window (Unix timestamp).
         end_ts: End of the extraction window (Unix timestamp).
         logical_date: Airflow logical date, used to build the S3 partition path.
-        run_id: Airflow run id, used to uniquely identify each run.
+        actual_datetime: Wall-clock time of the extract call, used to disambiguate S3 keys across re-runs.
 
     Returns:
         S3 key where data was uploaded. Downstream tasks can use it to locate
@@ -61,6 +61,9 @@ def extract_air_pollution_to_s3(
 
     logger.info(f"Retrieved {len(raw_list)} raw records from API")
 
+    logical_ts_nodash = logical_date.strftime('%Y%m%d%H%M%S')
+    actual_ts_nodash = actual_datetime.strftime('%Y%m%d%H%M%S')
+
     # Build a partitioned bronze key for traceable and query-friendly storage.
     s3_key = (
         f"bronze/air_pollution/"
@@ -68,8 +71,7 @@ def extract_air_pollution_to_s3(
         f"year={logical_date.year}/"
         f"month={logical_date.month:02d}/"
         f"day={logical_date.day:02d}/"
-        f"run_id={run_id}/"
-        f"{int(logical_date.timestamp())}.json"
+        f"{logical_ts_nodash}_{actual_ts_nodash}.json"
     )
 
     s3_service.save_dict_as_json(data, s3_key)
