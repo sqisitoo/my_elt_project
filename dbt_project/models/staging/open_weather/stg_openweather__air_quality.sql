@@ -36,7 +36,7 @@ flattened as (
 rounded as (
     select
         {{ round_coordinate('latitude') }} as latitude,
-        {{ round_coordinate('longitude') }} as longitude
+        {{ round_coordinate('longitude') }} as longitude,
 
         observation_utc_ts,
         aqi,
