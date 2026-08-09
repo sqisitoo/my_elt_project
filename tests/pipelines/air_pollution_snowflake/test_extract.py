@@ -43,12 +43,14 @@ def test_extract_air_pollution_to_s3_success_path(mock_clients, record_raw):
     # Prepare fake data and expected S3 key
     fake_data, city = {"coord": {"lon": 50.0, "lat": 50.0}, "list": [record_raw] * 24}, "Berlin"
     logical_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    run_id = "manual__2025-01-01T00:00:00+00:00"
     expected_key = (
         f"bronze/air_pollution/"
         f"city={city}/"
         f"year={logical_date.year}/"
         f"month={logical_date.month:02d}/"
         f"day={logical_date.day:02d}/"
+        f"run_id={run_id}/"
         f"{int(logical_date.timestamp())}.json"
     )
 
@@ -65,6 +67,7 @@ def test_extract_air_pollution_to_s3_success_path(mock_clients, record_raw):
         start_ts=120000,
         end_ts=130000,
         logical_date=logical_date,
+        run_id=run_id,
     )
 
     # Assert the returned key matches the expected key
@@ -100,6 +103,7 @@ def test_extract_air_pollution_to_s3_raises_skip_exception_on_empty_data(mock_cl
             start_ts=120000,
             end_ts=130000,
             logical_date=logical_date,
+            run_id="manual__2025-01-01T00:00:00+00:00",
         )
 
     mock_s3_service.save_dict_as_json.assert_not_called()

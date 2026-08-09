@@ -43,7 +43,7 @@ def air_pollution_snowflake_dag():
         return [city.model_dump() for city in cities]
 
     @task
-    def extract_data(city_info: dict, logical_date, data_interval_start, data_interval_end):
+    def extract_data(city_info: dict, run_id, logical_date, data_interval_start, data_interval_end):
         from airflow.providers.amazon.aws.hooks.s3 import S3Hook
 
         from plugins.common.clients.open_weather_client import OpenWeatherApiClient
@@ -65,6 +65,7 @@ def air_pollution_snowflake_dag():
             s3_service=s3_service,
             start_ts=data_interval_start.timestamp(),
             end_ts=data_interval_end.timestamp(),
+            run_id=run_id
         )
 
         return {"s3_key_to_raw_data": s3_key_to_raw_data, "city": city_info["name"]}

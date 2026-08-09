@@ -19,16 +19,33 @@ def extract_air_pollution_to_s3(
     start_ts: int | float,
     end_ts: int | float,
     logical_date: datetime,
+    run_id: str
 ) -> str:
-    """Fetch air pollution records for a city and persist them to S3.
+    """
+    Extract historical air pollution data from OpenWeatherMap and upload to S3 (bronze layer).
 
-    The function calls OpenWeather's historical API for the requested time
-    window, validates that at least one record was returned, stores the raw
-    payload as JSON in an S3 bronze path partitioned by city and logical date,
-    and returns the written S3 key.
+    Calls OpenWeather's historical API for the requested time window, validates
+    that at least one record was returned, and uploads the raw payload as a
+    single JSON file. Designed to be called inside an Airflow @task.
+
+    Args:
+        city: City name used for logging and S3 partitioning.
+        open_weather_client: Configured OpenWeatherMap API client.
+        s3_service: S3 client for uploading raw data.
+        lat: Latitude of the target location.
+        lon: Longitude of the target location.
+        start_ts: Start of the extraction window (Unix timestamp).
+        end_ts: End of the extraction window (Unix timestamp).
+        logical_date: Airflow logical date, used to build the S3 partition path.
+        run_id: Airflow run id, used to uniquely identify each run.
+
+    Returns:
+        S3 key where data was uploaded. Downstream tasks can use it to locate
+        the raw file for transformation.
 
     Raises:
         AirflowSkipException: If the API response does not contain any records.
+        requests.HTTPError: Propagated from the API client on non-2xx responses.
     """
     # Pull raw historical records for the requested city and time window.
     data = open_weather_client.get_historical_airpollution_data(
@@ -51,6 +68,7 @@ def extract_air_pollution_to_s3(
         f"year={logical_date.year}/"
         f"month={logical_date.month:02d}/"
         f"day={logical_date.day:02d}/"
+        f"run_id={run_id}/"
         f"{int(logical_date.timestamp())}.json"
     )
 

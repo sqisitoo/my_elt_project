@@ -19,6 +19,7 @@ def extract_weather_data(
     start_ts: int | float,
     end_ts: int | float,
     logical_date: datetime,
+    run_id: str
 ) -> list[str]:
     """
     Extract historical weather data from OpenWeatherMap and upload to S3 (bronze layer).
@@ -35,6 +36,7 @@ def extract_weather_data(
         start_ts: Start of the extraction window (Unix timestamp).
         end_ts: End of the extraction window (Unix timestamp).
         logical_date: Airflow logical date, used to build the S3 partition path.
+        run_id: Airflow run id, used to uniquely identify each runs
 
     Returns:
         List of S3 keys where data was uploaded. Downstream tasks can use these
@@ -61,6 +63,7 @@ def extract_weather_data(
             f"year={logical_date.year}/"
             f"month={logical_date.month:02d}/"
             f"day={logical_date.day:02d}/"
+            f"run_id={run_id}/"
             f"{int(logical_date.timestamp())}_part_{ind + 1}.json"
         )
 
