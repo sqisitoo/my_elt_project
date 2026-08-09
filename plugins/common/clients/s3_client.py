@@ -4,7 +4,6 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 
 import pandas as pd
-from botocore.exceptions import ClientError
 
 if TYPE_CHECKING:
     from botocore.client import BaseClient
@@ -13,8 +12,6 @@ logger = logging.getLogger(__name__)
 
 
 class S3Service:
-    # AWS rejects a DeleteObjects request carrying more than 1000 keys
-    _DELETE_BATCH_SIZE = 1000
 
     def __init__(self, bucket_name: str, s3_client: "BaseClient"):
         self._bucket = bucket_name
