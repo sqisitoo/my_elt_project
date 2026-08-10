@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — 2026-08-09
+Accepted — 2026-08-10 (proposed 2026-08-09)
 
 ## Context
 
@@ -124,7 +124,15 @@ as one unrecoverable gap exists.
 The bronze layout changes so that the date sits above the city, and the date
 becomes one path segment rather than three:
 
-    bronze/weather_data/date=2026-06-27/city=Warsaw/<logical_ts>_<actual_ts>_part_1.json
+    bronze/weather/date=2026-06-27/city=Warsaw/<logical_ts>_<actual_ts>_part_1.json
+
+The root of that path — `bronze/weather`, `bronze/air_pollution` — moves into the
+source registry (`plugins/common/config/sources.yml`, field `s3_prefix`), because
+it is now read by two parties rather than one: the extract writes under it and the
+load copies from under it. The date segment stays in code, in a single function
+that both parties call, so the two cannot disagree about its format. The weather
+root is renamed from `bronze/weather_data` to `bronze/weather` while renaming is
+still free, so roots match the keys of the registry entries.
 
 A single segment keeps a range of dates expressible as a string comparison,
 because this format sorts chronologically. Splitting it into `year=/month=/day=`
@@ -165,10 +173,13 @@ mandatory rather than merely advisable, which is the right default while I am
 still learning what this pipeline does wrong. The first malformed object forces
 a real decision, and it should be made then, with the object in hand.
 
-Objects written under the pre-ADR-0003 naming sit under the same partition
-prefixes and will be picked up by the first prefix-scoped load. Some are already
-in RAW and will be skipped; the stranded ones will finally load. Neither outcome
-matters much, since the warehouse cleanup removes that history anyway.
+Everything already in bronze becomes invisible to the loader. Existing objects
+were written under the old layout, which puts the city above a three-segment date
+and, for weather, under a different root — so none of them sits under any prefix
+the new load addresses. They are neither re-loaded nor repaired; whatever of that
+history reached RAW stays there until the warehouse cleanup removes both sides.
+This is acceptable only because that cleanup is the next step and the history is
+dev debris.
 
 Listing cost grows with the number of objects under one prefix, which is bounded
 by a single day, so it does not grow over time. A layout change that widened the
