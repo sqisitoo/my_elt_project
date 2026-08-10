@@ -70,6 +70,14 @@ def test_air_pollution_dag_dependencies(air_pollution_dag):
     assert run_dbt_source_freshness in run_dbt_build.upstream_list
 
 
+def test_load_to_snowflake_tolerates_skipped_cities(air_pollution_dag):
+    """A city extract skipped for empty API data (#43) must not skip the load for the rest (ADR-0004)."""
+    from airflow.task.trigger_rule import TriggerRule
+
+    load_to_snowflake = air_pollution_dag.get_task("load_to_snowflake")
+    assert load_to_snowflake.trigger_rule == TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS
+
+
 def test_dbt_tasks_bash_commands_use_env_vars(air_pollution_dag):
     for task_id in ("run_dbt_source_freshness", "run_dbt_build"):
         cmd = air_pollution_dag.get_task(task_id).bash_command
