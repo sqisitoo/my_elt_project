@@ -50,8 +50,8 @@ def weather_snowflake_dag():
 
         from plugins.common.clients.open_weather_client import OpenWeatherApiClient
         from plugins.common.clients.s3_client import S3Service
-        from plugins.pipelines.weather_snowflake.extract import extract_weather_data
         from plugins.common.config.sources import get_source_config
+        from plugins.pipelines.weather_snowflake.extract import extract_weather_data
 
         api_client = OpenWeatherApiClient(base_url=settings.api.url_str, api_key=settings.api.key)
 
@@ -109,7 +109,8 @@ def weather_snowflake_dag():
 
     get_cities_config_task = get_cities_config()
     extract_tasks_group = extract_data.expand(city_info=get_cities_config_task)
-    load_to_snowflake_task = load_to_snowflake()
+    # logical_date is injected by Airflow at runtime, not a missing argument
+    load_to_snowflake_task = load_to_snowflake()  # type: ignore[call-arg]
     extract_tasks_group >> load_to_snowflake_task >> run_dbt_source_freshness >> run_dbt_build
 
 

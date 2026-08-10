@@ -50,8 +50,8 @@ def air_pollution_snowflake_dag():
 
         from plugins.common.clients.open_weather_client import OpenWeatherApiClient
         from plugins.common.clients.s3_client import S3Service
-        from plugins.pipelines.air_pollution_snowflake.extract import extract_air_pollution_to_s3
         from plugins.common.config.sources import get_source_config
+        from plugins.pipelines.air_pollution_snowflake.extract import extract_air_pollution_to_s3
 
         api_client = OpenWeatherApiClient(base_url=settings.api.url_str, api_key=settings.api.key)
 
@@ -78,7 +78,7 @@ def air_pollution_snowflake_dag():
         )
 
         return {"s3_key_to_raw_data": s3_key_to_raw_data, "city": city_info["name"]}
-    
+
     # Tolerates skipped cities (ADR-0004): the load re-scans the whole partition
     # prefix regardless of which extract wrote to it, so one skip must not skip it too.
     @task(trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
@@ -110,7 +110,8 @@ def air_pollution_snowflake_dag():
 
     get_cities_config_task = get_cities_config()
     extract_tasks_group = extract_data.expand(city_info=get_cities_config_task)
-    load_to_snowflake_task = load_to_snowflake()
+    # logical_date is injected by Airflow at runtime, not a missing argument
+    load_to_snowflake_task = load_to_snowflake()  # type: ignore[call-arg]
 
     extract_tasks_group >> load_to_snowflake_task >> run_dbt_source_freshness >> run_dbt_build
 

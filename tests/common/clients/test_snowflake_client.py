@@ -92,7 +92,10 @@ def test_load_json_sql_is_idempotent(client, mock_hook):
 
 
 def test_load_json_sql_allows_uncertain_files(client, mock_hook):
-    """LOAD_UNCERTAIN_FILES = TRUE must be present so objects with expired load metadata are retried (ADR-0004)."""
+    """
+    LOAD_UNCERTAIN_FILES = TRUE must be present
+    so objects with expired load metadata are retried (ADR-0004).
+    """
     client.load_json_to_snowflake(
         s3_stage=S3_STAGE,
         target_schema=TARGET_SCHEMA,

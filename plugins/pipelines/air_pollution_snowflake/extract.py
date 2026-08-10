@@ -65,10 +65,7 @@ def extract_air_pollution_to_s3(
 
     # Build a partitioned bronze key for traceable and query-friendly storage.
     s3_key = object_key(
-        s3_prefix=s3_prefix,
-        logical_date=logical_date,
-        actual_datetime=actual_datetime,
-        city=city
+        s3_prefix=s3_prefix, logical_date=logical_date, actual_datetime=actual_datetime, city=city
     )
 
     s3_service.save_dict_as_json(data, s3_key)

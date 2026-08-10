@@ -18,7 +18,5 @@ def object_key(
     """Full bronze object key: '<partition_prefix>/city=<city>/<logical_ts>_<actual_ts>[_part_n].json'."""
     prefix = partition_prefix(s3_prefix, logical_date)
     part_suffix = f"_part_{part}" if part is not None else ""
-    file_name = (
-        f"{logical_date:%Y%m%d%H%M%S}_{actual_datetime:%Y%m%d%H%M%S}{part_suffix}.json"
-    )
+    file_name = f"{logical_date:%Y%m%d%H%M%S}_{actual_datetime:%Y%m%d%H%M%S}{part_suffix}.json"
     return f"{prefix}/city={city}/{file_name}"
