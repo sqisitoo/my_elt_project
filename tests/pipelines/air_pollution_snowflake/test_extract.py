@@ -42,14 +42,12 @@ def test_extract_air_pollution_to_s3_success_path(mock_clients, record_raw):
 
     # Prepare fake data and expected S3 key
     fake_data, city = {"coord": {"lon": 50.0, "lat": 50.0}, "list": [record_raw] * 24}, "Berlin"
+    s3_prefix = "bronze/air_pollution"
     logical_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
     actual_datetime = datetime(2025, 1, 1, 0, 5, 0, tzinfo=timezone.utc)
     expected_key = (
-        f"bronze/air_pollution/"
+        f"{s3_prefix}/date={logical_date:%Y-%m-%d}/"
         f"city={city}/"
-        f"year={logical_date.year}/"
-        f"month={logical_date.month:02d}/"
-        f"day={logical_date.day:02d}/"
         f"{logical_date.strftime('%Y%m%d%H%M%S')}_{actual_datetime.strftime('%Y%m%d%H%M%S')}.json"
     )
 
@@ -61,6 +59,7 @@ def test_extract_air_pollution_to_s3_success_path(mock_clients, record_raw):
         city=city,
         open_weather_client=mock_open_weather_client,
         s3_service=mock_s3_service,
+        s3_prefix=s3_prefix,
         lat=50.0,
         lon=50.0,
         start_ts=120000,
@@ -97,6 +96,7 @@ def test_extract_air_pollution_to_s3_raises_skip_exception_on_empty_data(mock_cl
             city="Berlin",
             open_weather_client=mock_open_weather_client,
             s3_service=mock_s3_service,
+            s3_prefix="bronze/air_pollution",
             lat=50.0,
             lon=50.0,
             start_ts=120000,

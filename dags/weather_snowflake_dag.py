@@ -49,12 +49,16 @@ def weather_snowflake_dag():
         from plugins.common.clients.open_weather_client import OpenWeatherApiClient
         from plugins.common.clients.s3_client import S3Service
         from plugins.pipelines.weather_snowflake.extract import extract_weather_data
+        from plugins.common.config.sources import get_source_config
 
         api_client = OpenWeatherApiClient(base_url=settings.api.url_str, api_key=settings.api.key)
 
         s3_hook = S3Hook(aws_conn_id="aws_default")
         boto3_client = s3_hook.get_conn()
         s3_service = S3Service(settings.aws.s3_bucket_name, s3_client=boto3_client)  # type: ignore
+
+        source = get_source_config(SOURCE_NAME)
+        s3_prefix = source.s3_prefix
 
         actual_datetime = datetime.now()
 
@@ -64,6 +68,7 @@ def weather_snowflake_dag():
             lon=city_info["lon"],
             open_weather_client=api_client,
             s3_service=s3_service,
+            s3_prefix=s3_prefix,
             start_ts=data_interval_start.timestamp(),
             end_ts=data_interval_end.timestamp(),
             logical_date=logical_date,

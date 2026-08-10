@@ -49,12 +49,16 @@ def air_pollution_snowflake_dag():
         from plugins.common.clients.open_weather_client import OpenWeatherApiClient
         from plugins.common.clients.s3_client import S3Service
         from plugins.pipelines.air_pollution_snowflake.extract import extract_air_pollution_to_s3
+        from plugins.common.config.sources import get_source_config
 
         api_client = OpenWeatherApiClient(base_url=settings.api.url_str, api_key=settings.api.key)
 
         s3_hook = S3Hook(aws_conn_id="aws_default")
         boto3_client = s3_hook.get_conn()
         s3_service = S3Service(settings.aws.s3_bucket_name, s3_client=boto3_client)  # type: ignore
+
+        source = get_source_config(SOURCE_NAME)
+        s3_prefix = source.s3_prefix
 
         actual_datetime = datetime.now()
 
@@ -65,6 +69,7 @@ def air_pollution_snowflake_dag():
             logical_date=logical_date,
             open_weather_client=api_client,
             s3_service=s3_service,
+            s3_prefix=s3_prefix,
             start_ts=data_interval_start.timestamp(),
             end_ts=data_interval_end.timestamp(),
             actual_datetime=actual_datetime,
