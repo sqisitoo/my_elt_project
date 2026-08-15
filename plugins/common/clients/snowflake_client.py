@@ -51,7 +51,7 @@ class SnowflakeClient:
             FILE_FORMAT = (TYPE = 'JSON')
             ON_ERROR = 'ABORT_STATEMENT'
             FORCE = FALSE
-            LOAD_UNCERTAIN_FILES=TRUE
+            LOAD_UNCERTAIN_FILES = TRUE
         """
 
         hook = SnowflakeHook(snowflake_conn_id=self._snowflake_conn_id)

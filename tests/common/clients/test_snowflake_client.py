@@ -104,7 +104,7 @@ def test_load_json_sql_allows_uncertain_files(client, mock_hook):
     )
 
     sql = mock_hook.run.call_args.args[0]
-    assert "LOAD_UNCERTAIN_FILES=TRUE" in sql
+    assert "LOAD_UNCERTAIN_FILES = TRUE" in sql
 
 
 def test_load_json_sql_references_stage(client, mock_hook):
