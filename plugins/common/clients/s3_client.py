@@ -36,30 +36,3 @@ class S3Service:
         except Exception:
             logger.error(f"Failed to save JSON to s3://{self._bucket}/{key}")
             raise
-
-    def list_keys(self, prefix: str) -> list[str]:
-        """
-        List every object key under the given prefix.
-
-        Args:
-            prefix: S3 key prefix to list, e.g. "bronze/weather_data/city=Berlin/".
-
-        Returns:
-            All matching keys, or an empty list if the prefix matches nothing.
-        """
-        # a single list_objects_v2 call returns at most 1000 keys plus a continuation token;
-        # the paginator replays the call until the last page, so callers never act on a
-        # silently truncated listing
-        paginator = self._client.get_paginator("list_objects_v2")
-
-        # "Contents" is absent, not empty, on a page that matched nothing
-        s3_keys = [
-            content["Key"]
-            for page in paginator.paginate(Bucket=self._bucket, Prefix=prefix)
-            for content in page.get("Contents", [])
-        ]
-
-        logger.info(f"Listed {len(s3_keys)} object(s) under s3://{self._bucket}/{prefix}")
-        logger.debug("Keys under %s: %s", prefix, s3_keys)
-
-        return s3_keys

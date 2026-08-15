@@ -5,6 +5,7 @@ from airflow.exceptions import AirflowSkipException
 
 from plugins.common.clients.open_weather_client import OpenWeatherApiClient
 from plugins.common.clients.s3_client import S3Service
+from plugins.common.utils.bronze_paths import object_key
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ def extract_weather_data(
     city: str,
     open_weather_client: OpenWeatherApiClient,
     s3_service: S3Service,
+    s3_prefix: str,
     lat: float,
     lon: float,
     start_ts: int | float,
@@ -52,21 +54,17 @@ def extract_weather_data(
 
     s3_keys = []
 
-    logical_ts_nodash = logical_date.strftime("%Y%m%d%H%M%S")
-    actual_ts_nodash = actual_datetime.strftime("%Y%m%d%H%M%S")
-
     for ind, chunk in enumerate(
         open_weather_client.get_historical_weather_data(
             city=city, lat=lat, lon=lon, start_ts=start_ts, end_ts=end_ts
         )
     ):
-        s3_key = (
-            f"bronze/weather_data/"
-            f"city={city}/"
-            f"year={logical_date.year}/"
-            f"month={logical_date.month:02d}/"
-            f"day={logical_date.day:02d}/"
-            f"{logical_ts_nodash}_{actual_ts_nodash}_part_{ind + 1}.json"
+        s3_key = object_key(
+            s3_prefix=s3_prefix,
+            logical_date=logical_date,
+            actual_datetime=actual_datetime,
+            city=city,
+            part=ind + 1,
         )
 
         s3_service.save_dict_as_json(chunk, s3_key)

@@ -12,11 +12,14 @@ class DataSource(BaseModel):
         target_schema (str): Fully qualified Snowflake schema (e.g. ``RAW.AIR_POLLUTION``).
         target_table (str): Snowflake table name within the target schema.
         s3_stage (str): Name of the Snowflake external stage pointing to the S3 bucket.
+        s3_prefix (str): Prefix (path) within the S3 stage where source files are located.
+
     """
 
     target_schema: str
     target_table: str
     s3_stage: str
+    s3_prefix: str
 
 
 def get_source_config(name: str, config_path: Path | None = None) -> DataSource:

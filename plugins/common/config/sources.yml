@@ -1,14 +1,17 @@
 # Central registry of data sources for the ELT pipeline load step.
 # Each entry maps a source name (used as a lookup key in DAGs) to its
-# Snowflake target schema/table and the S3 stage to copy from.
+# Snowflake target schema/table, the S3 stage to copy from, and the
+# bronze S3 prefix the extract step writes to.
 # To add a new source: append a new entry and create a corresponding DAG.
 sources:
   air_pollution:
     target_schema: RAW.AIR_POLLUTION
     target_table: RAW_AIR_POLLUTION
     s3_stage: s3_stage
+    s3_prefix: bronze/air_pollution
 
   weather:
     target_schema: RAW.WEATHER
     target_table: RAW_WEATHER
     s3_stage: s3_stage
+    s3_prefix: bronze/weather

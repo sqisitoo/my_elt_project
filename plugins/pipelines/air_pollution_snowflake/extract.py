@@ -5,6 +5,7 @@ from airflow.exceptions import AirflowSkipException
 
 from plugins.common.clients.open_weather_client import OpenWeatherApiClient
 from plugins.common.clients.s3_client import S3Service
+from plugins.common.utils.bronze_paths import object_key
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ def extract_air_pollution_to_s3(
     city: str,
     open_weather_client: OpenWeatherApiClient,
     s3_service: S3Service,
+    s3_prefix: str,
     lat: float,
     lon: float,
     start_ts: int | float,
@@ -61,17 +63,9 @@ def extract_air_pollution_to_s3(
 
     logger.info(f"Retrieved {len(raw_list)} raw records from API")
 
-    logical_ts_nodash = logical_date.strftime("%Y%m%d%H%M%S")
-    actual_ts_nodash = actual_datetime.strftime("%Y%m%d%H%M%S")
-
     # Build a partitioned bronze key for traceable and query-friendly storage.
-    s3_key = (
-        f"bronze/air_pollution/"
-        f"city={city}/"
-        f"year={logical_date.year}/"
-        f"month={logical_date.month:02d}/"
-        f"day={logical_date.day:02d}/"
-        f"{logical_ts_nodash}_{actual_ts_nodash}.json"
+    s3_key = object_key(
+        s3_prefix=s3_prefix, logical_date=logical_date, actual_datetime=actual_datetime, city=city
     )
 
     s3_service.save_dict_as_json(data, s3_key)

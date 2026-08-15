@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from airflow.providers.standard.operators.bash import BashOperator
 from airflow.sdk import dag, task
+from airflow.task.trigger_rule import TriggerRule
 
 from plugins.common.config import settings
 from plugins.common.utils.dbt import build_dbt_command
@@ -27,9 +28,10 @@ def air_pollution_snowflake_dag():
     Flow:
         1. ``get_cities_config`` — load the list of cities to process from ``cities_config.csv``.
         2. ``extract_data`` — for each city, fetch data from the OpenWeather API and write
-           the raw JSON payload to S3 (bronze layer), partitioned by city and date.
-        3. ``load_to_snowflake`` — copy all files produced in the previous step from the
-           S3 stage into the raw Snowflake table via ``COPY INTO``.
+           the raw JSON payload to S3 (bronze layer), partitioned by date and city.
+        3. ``load_to_snowflake`` — ``COPY INTO`` the raw Snowflake table from the S3 stage,
+           scoped to the logical date's partition prefix rather than the files this run wrote
+           (ADR-0004); tolerates a skipped city extract (#43).
         4. ``run_dbt_source_freshness`` — assert that the source data meets freshness SLAs.
         5. ``run_dbt_build`` — build and test all dbt models downstream of the raw source.
     """
@@ -48,6 +50,7 @@ def air_pollution_snowflake_dag():
 
         from plugins.common.clients.open_weather_client import OpenWeatherApiClient
         from plugins.common.clients.s3_client import S3Service
+        from plugins.common.config.sources import get_source_config
         from plugins.pipelines.air_pollution_snowflake.extract import extract_air_pollution_to_s3
 
         api_client = OpenWeatherApiClient(base_url=settings.api.url_str, api_key=settings.api.key)
@@ -55,6 +58,9 @@ def air_pollution_snowflake_dag():
         s3_hook = S3Hook(aws_conn_id="aws_default")
         boto3_client = s3_hook.get_conn()
         s3_service = S3Service(settings.aws.s3_bucket_name, s3_client=boto3_client)  # type: ignore
+
+        source = get_source_config(SOURCE_NAME)
+        s3_prefix = source.s3_prefix
 
         actual_datetime = datetime.now()
 
@@ -65,6 +71,7 @@ def air_pollution_snowflake_dag():
             logical_date=logical_date,
             open_weather_client=api_client,
             s3_service=s3_service,
+            s3_prefix=s3_prefix,
             start_ts=data_interval_start.timestamp(),
             end_ts=data_interval_end.timestamp(),
             actual_datetime=actual_datetime,
@@ -72,18 +79,20 @@ def air_pollution_snowflake_dag():
 
         return {"s3_key_to_raw_data": s3_key_to_raw_data, "city": city_info["name"]}
 
-    @task
-    def load_to_snowflake(extract_output_data):
+    # Tolerates skipped cities (ADR-0004): the load re-scans the whole partition
+    # prefix regardless of which extract wrote to it, so one skip must not skip it too.
+    @task(trigger_rule=TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS)
+    def load_to_snowflake(logical_date):
         from plugins.common.clients.snowflake_client import SnowflakeClient
         from plugins.common.config.sources import get_source_config
+        from plugins.common.utils.bronze_paths import partition_prefix
 
         snowflake_client = SnowflakeClient(snowflake_conn_id="snowflake_conn")
-        # Collect the S3 key written by each per-city extract task from the expanded group.
-        files = [r["s3_key_to_raw_data"] for r in extract_output_data]
         source = get_source_config(SOURCE_NAME)
+        s3_prefix = partition_prefix(s3_prefix=source.s3_prefix, logical_date=logical_date)
 
         snowflake_client.load_json_to_snowflake(
-            file_names=files,
+            s3_prefix=s3_prefix,
             s3_stage=source.s3_stage,
             target_schema=source.target_schema,
             target_table=source.target_table,
@@ -101,9 +110,10 @@ def air_pollution_snowflake_dag():
 
     get_cities_config_task = get_cities_config()
     extract_tasks_group = extract_data.expand(city_info=get_cities_config_task)
-    load_raw_data = load_to_snowflake(extract_tasks_group)
+    # logical_date is injected by Airflow at runtime, not a missing argument
+    load_to_snowflake_task = load_to_snowflake()  # type: ignore[call-arg]
 
-    extract_tasks_group >> load_raw_data >> run_dbt_source_freshness >> run_dbt_build
+    extract_tasks_group >> load_to_snowflake_task >> run_dbt_source_freshness >> run_dbt_build
 
 
 air_pollution_snowflake_dag()

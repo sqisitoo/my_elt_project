@@ -20,17 +20,15 @@ def test_extract_weather_data_single_chunk_success(mock_clients):
     mock_open_weather_client, mock_s3_service = mock_clients
 
     city = "Berlin"
+    s3_prefix = "bronze/weather"
     logical_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
     actual_datetime = datetime(2025, 1, 1, 0, 5, 0, tzinfo=timezone.utc)
     chunk = {"dt": 1735689600, "temp": 5.0}
     mock_open_weather_client.get_historical_weather_data.return_value = [chunk]
 
     expected_key = (
-        f"bronze/weather_data/"
+        f"{s3_prefix}/date={logical_date:%Y-%m-%d}/"
         f"city={city}/"
-        f"year={logical_date.year}/"
-        f"month={logical_date.month:02d}/"
-        f"day={logical_date.day:02d}/"
         f"{logical_date.strftime('%Y%m%d%H%M%S')}_{actual_datetime.strftime('%Y%m%d%H%M%S')}_part_1.json"
     )
 
@@ -38,6 +36,7 @@ def test_extract_weather_data_single_chunk_success(mock_clients):
         city=city,
         open_weather_client=mock_open_weather_client,
         s3_service=mock_s3_service,
+        s3_prefix=s3_prefix,
         lat=52.5,
         lon=13.4,
         start_ts=1735689600,
@@ -58,6 +57,7 @@ def test_extract_weather_data_multiple_chunks_success(mock_clients):
     mock_open_weather_client, mock_s3_service = mock_clients
 
     city = "Berlin"
+    s3_prefix = "bronze/weather"
     logical_date = datetime(2025, 1, 1, tzinfo=timezone.utc)
     actual_datetime = datetime(2025, 1, 1, 0, 5, 0, tzinfo=timezone.utc)
     chunks = [{"dt": 1735689600}, {"dt": 1735693200}, {"dt": 1735696800}]
@@ -65,11 +65,8 @@ def test_extract_weather_data_multiple_chunks_success(mock_clients):
 
     expected_keys = [
         (
-            f"bronze/weather_data/"
+            f"{s3_prefix}/date={logical_date:%Y-%m-%d}/"
             f"city={city}/"
-            f"year={logical_date.year}/"
-            f"month={logical_date.month:02d}/"
-            f"day={logical_date.day:02d}/"
             f"{logical_date.strftime('%Y%m%d%H%M%S')}_{actual_datetime.strftime('%Y%m%d%H%M%S')}_part_{i}.json"
         )
         for i in range(1, 4)
@@ -79,6 +76,7 @@ def test_extract_weather_data_multiple_chunks_success(mock_clients):
         city=city,
         open_weather_client=mock_open_weather_client,
         s3_service=mock_s3_service,
+        s3_prefix=s3_prefix,
         lat=52.5,
         lon=13.4,
         start_ts=1735689600,
@@ -113,6 +111,7 @@ def test_extract_weather_data_raises_skip_exception_on_empty_data(mock_clients):
             city="Berlin",
             open_weather_client=mock_open_weather_client,
             s3_service=mock_s3_service,
+            s3_prefix="bronze/weather",
             lat=52.5,
             lon=13.4,
             start_ts=1735689600,

@@ -8,6 +8,7 @@ SNOWFLAKE_CONN_ID = "snowflake_conn"
 TARGET_SCHEMA = "RAW.AIR_POLLUTION"
 TARGET_TABLE = "RAW_AIR_POLLUTION"
 S3_STAGE = "s3_stage"
+S3_PREFIX = "bronze/air_pollution/date=2026-06-25"
 
 
 @pytest.fixture
@@ -31,7 +32,7 @@ def test_load_json_calls_hook_with_correct_conn_id(client, mock_hook):
             s3_stage=S3_STAGE,
             target_schema=TARGET_SCHEMA,
             target_table=TARGET_TABLE,
-            file_names=["bronze/air_pollution/city=warsaw/2026/06/25/123.json"],
+            s3_prefix=S3_PREFIX,
         )
         mock_cls.assert_called_once_with(snowflake_conn_id=SNOWFLAKE_CONN_ID)
 
@@ -42,7 +43,7 @@ def test_load_json_executes_sql(client, mock_hook):
         s3_stage=S3_STAGE,
         target_schema=TARGET_SCHEMA,
         target_table=TARGET_TABLE,
-        file_names=["bronze/air_pollution/city=warsaw/2026/06/25/123.json"],
+        s3_prefix=S3_PREFIX,
     )
 
     mock_hook.run.assert_called_once()
@@ -56,30 +57,25 @@ def test_load_json_sql_targets_correct_table(client, mock_hook):
         s3_stage=S3_STAGE,
         target_schema=TARGET_SCHEMA,
         target_table=TARGET_TABLE,
-        file_names=["bronze/air_pollution/city=warsaw/2026/06/25/123.json"],
+        s3_prefix=S3_PREFIX,
     )
 
     sql = mock_hook.run.call_args.args[0]
     assert f"COPY INTO {TARGET_SCHEMA}.{TARGET_TABLE}" in sql
 
 
-def test_load_json_sql_contains_files_clause(client, mock_hook):
-    """All provided S3 keys must appear as quoted entries in the FILES clause."""
-    file_names = [
-        "bronze/air_pollution/city=warsaw/2026/06/25/123.json",
-        "bronze/air_pollution/city=berlin/2026/06/25/456.json",
-    ]
-
+def test_load_json_sql_scopes_to_partition_prefix(client, mock_hook):
+    """The FROM clause must address the partition prefix (ADR-0004), not an explicit file list."""
     client.load_json_to_snowflake(
         s3_stage=S3_STAGE,
         target_schema=TARGET_SCHEMA,
         target_table=TARGET_TABLE,
-        file_names=file_names,
+        s3_prefix=S3_PREFIX,
     )
 
     sql = mock_hook.run.call_args.args[0]
-    for key in file_names:
-        assert f"'{key}'" in sql
+    assert f'"{S3_STAGE}"/{S3_PREFIX}' in sql
+    assert "FILES = (" not in sql
 
 
 def test_load_json_sql_is_idempotent(client, mock_hook):
@@ -88,11 +84,27 @@ def test_load_json_sql_is_idempotent(client, mock_hook):
         s3_stage=S3_STAGE,
         target_schema=TARGET_SCHEMA,
         target_table=TARGET_TABLE,
-        file_names=["bronze/air_pollution/city=warsaw/2026/06/25/123.json"],
+        s3_prefix=S3_PREFIX,
     )
 
     sql = mock_hook.run.call_args.args[0]
     assert "FORCE = FALSE" in sql
+
+
+def test_load_json_sql_allows_uncertain_files(client, mock_hook):
+    """
+    LOAD_UNCERTAIN_FILES = TRUE must be present
+    so objects with expired load metadata are retried (ADR-0004).
+    """
+    client.load_json_to_snowflake(
+        s3_stage=S3_STAGE,
+        target_schema=TARGET_SCHEMA,
+        target_table=TARGET_TABLE,
+        s3_prefix=S3_PREFIX,
+    )
+
+    sql = mock_hook.run.call_args.args[0]
+    assert "LOAD_UNCERTAIN_FILES = TRUE" in sql
 
 
 def test_load_json_sql_references_stage(client, mock_hook):
@@ -101,7 +113,7 @@ def test_load_json_sql_references_stage(client, mock_hook):
         s3_stage=S3_STAGE,
         target_schema=TARGET_SCHEMA,
         target_table=TARGET_TABLE,
-        file_names=["bronze/air_pollution/city=warsaw/2026/06/25/123.json"],
+        s3_prefix=S3_PREFIX,
     )
 
     sql = mock_hook.run.call_args.args[0]
