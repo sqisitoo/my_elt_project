@@ -28,10 +28,12 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
       values   = ["sts.amazonaws.com"]
     }
 
+    # Scoped to one repository and one branch: a workflow running anywhere else —
+    # a fork, a pull request, another branch — cannot assume this role.
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:sqisitoo/my_elt_project:ref:refs/heads/main"]
+      values   = ["repo:${var.github_repository}:ref:refs/heads/${var.github_deploy_branch}"]
     }
   }
 }
