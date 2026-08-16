@@ -1,0 +1,27 @@
+# Copy to backend.conf and fill in. The real file is gitignored.
+#
+#   cp backend.conf.example backend.conf
+#   terraform init -backend-config=backend.conf
+#
+# Terraform does not create its own state bucket — this bucket must already
+# exist before the first init. Create it by hand, in the same region, with
+# versioning enabled (versioning is what lets you recover from a bad apply):
+#
+#   aws s3api create-bucket \
+#     --bucket <your-unique-state-bucket> \
+#     --region eu-north-1 \
+#     --create-bucket-configuration LocationConstraint=eu-north-1 \
+#     --profile <your-profile>
+#   aws s3api put-bucket-versioning \
+#     --bucket <your-unique-state-bucket> \
+#     --versioning-configuration Status=Enabled \
+#     --profile <your-profile>
+#
+# State locking is enabled in main.tf via use_lockfile, which uses a lock
+# object in this same bucket. No DynamoDB table is needed.
+
+bucket  = "REPLACE_ME-tf-state-bucket"
+key     = "airflow-platform/terraform.tfstate"
+region  = "eu-north-1"
+encrypt = true
+profile = "my-pet-project"

@@ -1,0 +1,67 @@
+# Copy to terraform.tfvars and fill in. The real file is gitignored.
+#
+#   cp terraform.tfvars.example terraform.tfvars
+#
+# Values shown as "default:" are what variables.tf falls back to when the line
+# is absent. They are listed here anyway, because a deployment that silently
+# depends on a default is a deployment nobody else can reproduce.
+
+# --- AWS ---
+# Named profile in ~/.aws/credentials that Terraform authenticates with.
+# NOTE: variables.tf defaults this to "my-pet-project". If your profile is
+# called something else, this line is not optional.
+aws_profile = "my-pet-project"
+aws_region  = "eu-north-1"
+
+# --- Network / access ---
+# Your public IP in CIDR form, e.g. ["203.0.113.7/32"]. This is the ONLY thing
+# standing between the internet and the Airflow UI: the ECS task runs in a
+# public subnet with a public IP and there is no load balancer or auth proxy.
+# An empty list means the UI is unreachable, which is the safe default.
+allowed_ssh_cidrs = []
+
+# NAT gateway costs roughly $32/month and is not needed: tasks reach the
+# internet directly from a public subnet. Leave false unless you move the
+# tasks into private subnets.
+enable_nat_gateway = false
+
+# Bastion host for reaching RDS from your laptop. Off by default; the Airflow
+# metadata database is not something you normally need a shell against.
+create_bastion = false
+
+# --- OpenWeather ---
+# The historical endpoints this project uses (One Call 4.0 timeline and
+# air pollution history) require a paid subscription, not the free tier.
+api_base_url        = "https://api.openweathermap.org"
+openweather_api_key = "REPLACE_ME"
+
+# --- Snowflake ---
+# Both values come from the last query in terraform/scripts/bootstrap.sql:
+#   SELECT LOWER(CURRENT_ORGANIZATION_NAME()), LOWER(CURRENT_ACCOUNT_NAME());
+snowflake_organization_name = "REPLACE_ME"
+snowflake_account_name      = "REPLACE_ME"
+
+# The service user created by bootstrap.sql. default: "TERRAFORM_SVC"
+snowflake_user = "TERRAFORM_SVC"
+
+# --- GitHub OIDC ---
+# Only workflow runs from this repository and branch may assume the deploy role.
+# A fork MUST change this or its CI cannot push to ECR.
+github_repository    = "sqisitoo/my_elt_project"
+github_deploy_branch = "main"
+
+# --- dbt (inside the container) ---
+dbt_target       = "prod"
+dbt_profiles_dir = "/opt/airflow/dbt_project"
+dbt_project_dir  = "/opt/airflow/dbt_project"
+
+# --- NOT set here: the two-phase storage integration ---
+# snowflake_iam_user_arn and snowflake_external_id are deliberately absent.
+# They do not exist until the first apply has created the Snowflake storage
+# integration, and they are supplied to the second apply as environment
+# variables:
+#
+#   export TF_VAR_snowflake_iam_user_arn=...
+#   export TF_VAR_snowflake_external_id=...
+#
+# See docs/deployment.md for why this cannot be a single apply.
