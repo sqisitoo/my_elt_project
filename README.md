@@ -317,7 +317,7 @@ Deliberately **not** planned, so that the scope stays finite: Kafka or streaming
 
 ## Author
 
-**Vladislav Kizilov** — Data Engineer
+**Vladyslav Kyzylov** — Data Engineer
 
 [GitHub](https://github.com/sqisitoo) · [Email](mailto:kizilovladislav@gmail.com) · [LinkedIn](https://www.linkedin.com/in/vladyslav-kyzylov-de/)
 
