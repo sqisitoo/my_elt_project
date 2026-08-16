@@ -1,8 +1,16 @@
+-- Run this once, as ACCOUNTADMIN, before the first `terraform apply`.
+-- It creates the identity Terraform itself uses; everything else in Snowflake
+-- is then managed by terraform/snowflake.tf.
+--
 -- Prerequisites:
--- 1. Generate RSA key pair:
---    openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out snowflake_tf_key.p8 -nocrypt
---    openssl rsa -in snowflake_tf_key.p8 -pubout -out snowflake_tf_key.pub
--- 2. Use the public key content below
+-- 1. Generate an RSA key pair (unencrypted — the Terraform provider and dbt are
+--    both configured without a passphrase in this project):
+--      openssl genrsa 2048 | openssl pkcs8 -topk8 -inform PEM -out keys/snowflake_tf_snow_key.p8 -nocrypt
+--      openssl rsa -in keys/snowflake_tf_snow_key.p8 -pubout -out keys/snowflake_tf_snow_key.pub
+-- 2. Paste only the base64 body of the .pub file below — the BEGIN/END lines
+--    are already in place.
+-- 3. Keep the private key out of git (keys/ is gitignored) and export it for
+--    the provider:  export SNOWFLAKE_PRIVATE_KEY="$(cat keys/snowflake_tf_snow_key.p8)"
 
 USE ROLE ACCOUNTADMIN;
 
@@ -10,13 +18,7 @@ CREATE USER TERRAFORM_SVC
     TYPE = SERVICE
     COMMENT = "Service user for Terraforming Snowflake"
     RSA_PUBLIC_KEY = "-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAtJaSe6Mqs854eUb3iiF8
-hwFT/GV/WyCBROdDtssj84YUwCzEwxnfrM8sdmSX5PslX2VS1hAYNY1GvUyIhDk5
-yWk3g3aMCg9fO8r1DYilvOLCQJAWtfYnE2jt295+J7ZAQCEFo2LdUoKejvCiQx0C
-WjFPLbXaWp7swe1W45p4Vk4K9oY9Zbls5tn/I5Mz1AN7UEQLH/qSxnGE8tYtp1Tr
-/kQeGU9tCeDO1b4xzaMTq1pY0Vvpa1CTqGRm3pYq2Ep+GV8XuECS23j2INa30xbZ
-29GkTCICODE+ZF7rvKIvKYaWm/jMt8ZdQuvkZJDCH9eAuiTEipejFT7F1W7dovm6
-lwIDAQAB
+<PASTE THE CONTENTS OF keys/snowflake_tf_snow_key.pub HERE>
 -----END PUBLIC KEY-----";
 
 CREATE ROLE TERRAFORM_ROLE;
