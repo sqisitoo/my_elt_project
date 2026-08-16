@@ -23,7 +23,13 @@ terraform {
     }
   }
 
-  backend "s3" {}
+  # Partial configuration: bucket, key, region and profile come from backend.conf
+  # (gitignored — see backend.conf.example). use_lockfile turns on S3-native state
+  # locking, so a second concurrent apply fails fast instead of racing this one.
+  # Changing this block requires `terraform init -reconfigure`.
+  backend "s3" {
+    use_lockfile = true
+  }
 }
 
 provider "aws" {

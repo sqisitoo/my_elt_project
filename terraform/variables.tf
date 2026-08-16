@@ -84,3 +84,16 @@ variable "dbt_project_dir" {
   type        = string
   default     = "/opt/airflow/dbt_project"
 }
+
+# github variables
+variable "github_repository" {
+  description = "owner/name of the repository allowed to assume the deploy role via OIDC. A fork must change this or its workflow cannot deploy."
+  type        = string
+  default     = "sqisitoo/my_elt_project"
+}
+
+variable "github_deploy_branch" {
+  description = "Branch whose workflow runs may assume the deploy role"
+  type        = string
+  default     = "main"
+}
