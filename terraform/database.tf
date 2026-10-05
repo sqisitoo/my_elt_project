@@ -1,5 +1,8 @@
 resource "random_password" "rds_password" {
-  length  = 16
+  length = 16
+  # do not change
+  # airflow create url connection string
+  # with special symbols it will be broken
   special = false
 }
 
@@ -17,24 +20,6 @@ resource "aws_security_group" "rds_sg" {
   name        = "airflow-rds-sg"
   description = "Allow inbound traffic to Postgres"
   vpc_id      = aws_vpc.airflow.id
-
-  dynamic "ingress" {
-    for_each = var.create_bastion ? [1] : []
-    content {
-      description     = "Postgres from Bastion"
-      from_port       = 5432
-      to_port         = 5432
-      protocol        = "tcp"
-      security_groups = [aws_security_group.bastion_sg[0].id]
-    }
-  }
-
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
   tags = {
     Name = "airflow-rds-sg"
@@ -57,7 +42,7 @@ resource "aws_db_instance" "default" {
   auto_minor_version_upgrade = true
 
   engine            = "postgres"
-  engine_version    = "17.7"
+  engine_version    = "17"
   instance_class    = "db.t4g.micro"
   allocated_storage = 20
 
