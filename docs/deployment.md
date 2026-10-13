@@ -71,7 +71,7 @@ cp terraform.tfvars.example terraform.tfvars   # then edit
 cp backend.conf.example backend.conf           # then edit
 ```
 
-Two values in `terraform.tfvars` deserve attention rather than a default. `allowed_ssh_cidrs` is the only thing standing between the internet and the Airflow UI — there is no load balancer and no auth proxy in front of it, just a security group. And `github_repository` scopes which repository's workflows may assume the deploy role; a fork that leaves it pointing at the original repository will have a CI job that cannot push to ECR.
+Two values in `terraform.tfvars` deserve attention rather than a default. `airflow_ui_allowed_cidrs` is the only thing standing between the internet and the Airflow UI — there is no load balancer and no auth proxy in front of it, just a security group. And `github_repository` scopes which repository's workflows may assume the deploy role; a fork that leaves it pointing at the original repository will have a CI job that cannot push to ECR.
 
 ---
 

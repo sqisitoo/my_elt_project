@@ -18,16 +18,7 @@ aws_region  = "eu-north-1"
 # standing between the internet and the Airflow UI: the ECS task runs in a
 # public subnet with a public IP and there is no load balancer or auth proxy.
 # An empty list means the UI is unreachable, which is the safe default.
-allowed_ssh_cidrs = []
-
-# NAT gateway costs roughly $32/month and is not needed: tasks reach the
-# internet directly from a public subnet. Leave false unless you move the
-# tasks into private subnets.
-enable_nat_gateway = false
-
-# Bastion host for reaching RDS from your laptop. Off by default; the Airflow
-# metadata database is not something you normally need a shell against.
-create_bastion = false
+airflow_ui_allowed_cidrs = []
 
 # --- OpenWeather ---
 # The historical endpoints this project uses (One Call 4.0 timeline and
