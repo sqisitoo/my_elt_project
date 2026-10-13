@@ -8,20 +8,8 @@ variable "aws_profile" {
   default     = "my-pet-project"
 }
 
-variable "enable_nat_gateway" {
-  description = "Enable NAT Gateway?"
-  type        = bool
-  default     = false
-}
-
-variable "create_bastion" {
-  description = "Create Bastion Host for DB access?"
-  type        = bool
-  default     = false
-}
-
-variable "allowed_ssh_cidrs" {
-  description = "List of IPs to access the bastion"
+variable "airflow_ui_allowed_cidrs" {
+  description = "List of CIDRs allowed to reach the Airflow UI (port 8080)"
   type        = list(string)
   default     = []
 }

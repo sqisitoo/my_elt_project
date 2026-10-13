@@ -69,7 +69,7 @@ resource "aws_cloudwatch_log_group" "airflow" {
 # and dag-processor).
 #
 # Inbound:  port 8080 (Airflow Web UI) restricted to your IP only
-#           (controlled by var.allowed_ssh_cidrs in terraform.tfvars).
+#           (controlled by var.airflow_ui_allowed_cidrs in terraform.tfvars).
 # Outbound: fully open — required so tasks can pull Docker images from ECR,
 #           reach AWS APIs (S3, Secrets Manager), and connect to RDS.
 #
@@ -87,7 +87,7 @@ resource "aws_security_group" "ecs_airflow" {
   }
 }
 
-# Airflow Web UI — only from your IP (same CIDR list used for bastion SSH).
+# Airflow Web UI — only from the CIDRs listed in var.airflow_ui_allowed_cidrs.
 resource "aws_security_group_rule" "ingress_apiserver" {
   type              = "ingress"
   security_group_id = aws_security_group.ecs_airflow.id
@@ -96,7 +96,7 @@ resource "aws_security_group_rule" "ingress_apiserver" {
   to_port   = 8080
   protocol  = "tcp"
 
-  cidr_blocks = var.allowed_ssh_cidrs
+  cidr_blocks = var.airflow_ui_allowed_cidrs
   description = "Allow Web UI access from host ip"
 }
 
