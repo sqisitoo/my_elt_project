@@ -279,7 +279,7 @@ Configuration that cannot be committed has documented examples beside it: [`terr
 
 ## Project status
 
-The project has an explicit finish line. It is done when five statements are true: this README explains the project to a stranger without me; CI catches everything that currently breaks silently; the warehouse is clean and a full dbt build over all history is green; the pipeline is *operated* rather than demonstrated, with at least two weeks of runs and failures that produce an alert rather than silence; and the infrastructure has no dead parts, with warehouse layers separated and dbt decoupled from Airflow. Anything beyond those five is deliberate debt, to be done after the finish line or not at all.
+The project has an explicit finish line. It is done when five statements are true: this README explains the project to a stranger without me; CI catches everything that currently breaks silently; the warehouse is clean and a full dbt build over all history is green; the pipeline is *operated* rather than demonstrated, with at least two weeks of runs and failures that produce an alert rather than silence; and the infrastructure has no dead parts, with warehouse layers separated and dbt decoupled from Airflow. Anything beyond those five is deliberate debt, to be done after the finish line or not at all. The repository also carries a [`CLAUDE.md`](CLAUDE.md): the working context I give an AI coding assistant (conventions, gotchas, known defects), kept in git so it is reviewed like code.
 
 **Working today**
 
@@ -297,19 +297,12 @@ The project has an explicit finish line. It is done when five statements are tru
 - **The daily completeness signal is not yet fit for daily reading.** The 24-hours-per-day test inspects the entire history on every run, so the first unrecoverable gap makes it permanently red — and a permanently red test is one nobody reads. It needs splitting into an archival test outside the daily run and a recent-window test inside it.
 - **Marts are views** (no materialisation config, so dbt's default applies) and nothing is incremental. Fine at five cities and hourly grain; not a pattern to copy at scale.
 - **`dbt-snowflake` is installed unpinned in the image.** Reproducibility of the image therefore depends on when it was built.
-- **Some infrastructure is dead or legacy.** The bastion host and NAT gateway exist behind flags that default to off, and a few `DB_*` environment variables survive from a removed Postgres ETL. Issue #45; first step of the infrastructure phase.
+- **Some legacy remains.** The bastion host and NAT gateway have been removed (on branch `infra/remove-legacy-infrastructure`, awaiting merge), but a few `DB_*` environment variables survive from a removed Postgres ETL. Issue #45.
 - **`stg_openweather__weather` keeps only the first element of the API's weather-conditions array.** If a response carries both rain and mist, the second is dropped before any tested table exists, so no test can catch it.
 
-**Next, in order**
+**Next**
 
-1. Infrastructure, cheapest step first:
-   - a. Remove the dead resources — the bastion host and what remains of the retired Postgres ETL (#45).
-   - b. Separate the warehouse layers, so that no model writes into its neighbour's schema (#44).
-   - c. Make failures visible: alerting (#48). This is what tests structurally cannot do, since a test lives inside the DAG it is testing.
-   - d. Refactor the existing Terraform, until there is no resource whose purpose and shape I cannot defend in review.
-   - e. Decouple dbt from Airflow — they share one image today. The Cosmos question is answered here, as part of the same decision, rather than as a separate step afterwards.
-2. Operate it: at least two weeks of runs and one real incident worked through. The architecture diagram and an operations section land here, once the shape of the infrastructure has stopped moving.
-3. A consumption layer on top of the accumulated clean data.
+Infrastructure first (warehouse layers, alerting, Terraform refactor, decoupling dbt from Airflow), then at least two weeks of operation, then a consumption layer. The phases, their order and the reasoning are in [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 Deliberately **not** planned, so that the scope stays finite: Kafka or streaming, Kubernetes, Great Expectations on top of dbt tests, the dbt Semantic Layer, and a third data source before the finish line.
 

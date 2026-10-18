@@ -211,5 +211,5 @@ Stated rather than discovered, because most of these are conscious trade-offs fo
 - **State locking was only added recently** (`use_lockfile` in `main.tf`). If your working copy predates it, `terraform init -reconfigure` is required once.
 - **`skip_final_snapshot = true` and `deletion_protection = false` on RDS.** The metadata database is treated as disposable, which it is here and would not be anywhere else.
 - **Terraform stops owning the running image after the first CI deploy** — see the note on `ignore_changes` above.
-- **Dead infrastructure is still in the configuration.** The bastion host and NAT gateway exist behind flags defaulting to off; removing them is the first step of the infrastructure phase in the [roadmap](../README.md#project-status).
+- **The infrastructure has not been refactored yet.** The bastion host and NAT gateway are already removed; separating warehouse layers, alerting and a review pass over the remaining Terraform are still open, see the [roadmap](ROADMAP.md).
 - **Stopping after the first apply leaves a role trusting your own account root.** It grants nothing to anyone outside your account, but it is a placeholder, not a resting state.

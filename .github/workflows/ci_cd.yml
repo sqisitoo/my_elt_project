@@ -49,6 +49,7 @@ jobs:
         uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.14.4
+          # The wrapper rewrites terraform's exit codes, which breaks failure detection under make.
           terraform_wrapper: false
       
       - name: Install Dependencies
@@ -147,6 +148,8 @@ jobs:
       contents: read
       id-token: write
     # Prevent overlapping ECS deployments from concurrent workflow runs.
+    # This is not a queue: GitHub keeps ONE pending run and each new one evicts it, so with
+    # three quick pushes the middle one is cancelled silently. Acceptable for deploys.
     concurrency:
       group: deploy
       cancel-in-progress: false
