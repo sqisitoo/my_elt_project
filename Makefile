@@ -1,3 +1,6 @@
+# .ONESHELL runs each recipe as ONE bash script, so the exit code is that of the LAST
+# command: without `set -eo pipefail` an earlier failure is swallowed and the target goes
+# green. Every multi-line target below must start with it.
 .ONESHELL:
 .PHONY: lint lint_tf lint_dbt test build check install_deps
 SHELL:= /bin/bash
@@ -17,6 +20,9 @@ lint:
 test:
 	pytest
 
+# Do not add -lockfile=readonly to init: .terraform.lock.hcl carries h1: hashes for one
+# platform only (windows_amd64), and a Linux runner has to append its own. Fix first with
+# `terraform providers lock -platform=windows_amd64 -platform=linux_amd64`.
 lint_tf:
 	@set -eo pipefail
 	terraform -chdir=terraform fmt -check -recursive

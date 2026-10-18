@@ -412,9 +412,11 @@ locals {
     { name = "AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK", value = "true" },
     { name = "AIRFLOW__CORE__AUTH_MANAGER", value = "airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager" },
 
-    # When true, the scheduler auto-creates DagRun data intervals for
-    # cron-based schedules on first unpause, backfilling any missed intervals
-    # since the DAG's start_date.
+    # LOAD-BEARING, do not remove. Airflow 3 defaults this to false, and a bare cron
+    # then resolves to CronTriggerTimetable, where data_interval_start ==
+    # data_interval_end. The extract window collapses to zero, the API returns
+    # nothing, every city skips, and ingestion stops SILENTLY. Also set in
+    # docker-compose.yml.
     { name = "AIRFLOW__SCHEDULER__CREATE_CRON_DATA_INTERVALS", value = "true" },
 
     # --- Remote logging (S3) ---

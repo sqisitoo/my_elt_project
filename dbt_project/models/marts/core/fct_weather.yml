@@ -7,7 +7,14 @@ models:
       Grain: one row per location per hour (location_id + observation_utc_ts)
       Measures pass through from stg_openweather__weather unchanged - no aggregation
       and no derived columns. The only transformation is replacing latitude/longitude
-      with location_id from dim_location
+      with location_id from dim_location.
+
+      Deliberately absent columns: temperature_feels_like_celsius (derived; recompute it
+      downstream where the formula is owned); weather_description, weather_group and
+      weather_icon_id (attributes of a future dim_weather_condition, determined by the code).
+      Deliberately kept: weather_condition_id as an FK without a dimension yet (cheap, and
+      saves a reload once the dimension appears); wind_direction_degree and aqi as the
+      atomic values from which sector and category are derived.
 
     columns:
       - name: weather_id

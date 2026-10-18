@@ -16,6 +16,10 @@ resource "aws_secretsmanager_secret_version" "rds_password_value" {
   secret_string = random_password.rds_password.result
 }
 
+# Rules for this group are standalone aws_security_group_rule resources (see ecs.tf).
+# Do not add inline ingress/egress blocks here: the AWS provider does not support mixing
+# the two styles on one group, and they overwrite each other on apply. No egress rule is
+# needed — security groups are stateful and Postgres initiates nothing outbound.
 resource "aws_security_group" "rds_sg" {
   name        = "airflow-rds-sg"
   description = "Allow inbound traffic to Postgres"
@@ -41,7 +45,10 @@ resource "aws_db_instance" "default" {
   storage_encrypted          = true
   auto_minor_version_upgrade = true
 
-  engine            = "postgres"
+  engine = "postgres"
+  # Major version only. An exact pin ("17.7") drifts against auto_minor_version_upgrade:
+  # AWS upgrades the instance, the config still demands the old minor, and the next apply
+  # fails because a downgrade is impossible.
   engine_version    = "17"
   instance_class    = "db.t4g.micro"
   allocated_storage = 20
