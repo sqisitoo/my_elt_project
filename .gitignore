@@ -9,11 +9,12 @@ __pycache__/
 *.pyd
 .vscode
 .mypy_cache
+.ruff_cache
+.pytest_cache
 terraform/.terraform
 terraform/backend.conf
 terraform/terraform.tfvars
 keys/
 dbt_venv/
-CLAUDE.md
+CLAUDE.local.md
 interview_prep/
-dbt_project/.gitignore
