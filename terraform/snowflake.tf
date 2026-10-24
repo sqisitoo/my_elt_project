@@ -20,12 +20,12 @@ resource "snowflake_schema" "raw_weather" {
 
 resource "snowflake_schema" "staging" {
   database = snowflake_database.analytic_db
-  name = "STAGING"
+  name     = "STAGING"
 }
 
 resource "snowflake_schema" "marts" {
   database = snowflake_database.analytic_db
-  name = "MARTS"
+  name     = "MARTS"
 }
 
 # For local dbt running.
@@ -34,7 +34,7 @@ resource "snowflake_schema" "marts" {
 # and has every privilige on it. Related to #70 issue.
 resource "snowflake_schema" "dev_schema" {
   database = snowflake_database.analytic_db
-  name = "DEV_VLAD"
+  name     = "DEV_VLAD"
 }
 
 
