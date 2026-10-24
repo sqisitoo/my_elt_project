@@ -100,8 +100,9 @@ No model SQL changes. `ref()` follows each node to its new location, and the sou
 already name `RAW` explicitly. The relations left in `RAW.AIR_POLLUTION` are not removed
 by dbt and are dropped by hand after the first green build in the new layout.
 
-The layout is implemented by overriding `generate_schema_name` to delegate to dbt's
-built-in `generate_schema_name_for_env`. In the `prod` target a custom schema is used
+The layout is implemented by overriding `generate_schema_name` with the logic of dbt's
+built-in `generate_schema_name_for_env`, written out in the project so that a dbt upgrade
+cannot change where relations are built. In the `prod` target a custom schema is used
 verbatim. In any other target every node goes to the target schema, which for local
 development is `DEV_VLAD`.
 
