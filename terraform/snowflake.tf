@@ -19,12 +19,12 @@ resource "snowflake_schema" "raw_weather" {
 }
 
 resource "snowflake_schema" "staging" {
-  database = snowflake_database.analytic_db
+  database = snowflake_database.analytic_db.name
   name     = "STAGING"
 }
 
 resource "snowflake_schema" "marts" {
-  database = snowflake_database.analytic_db
+  database = snowflake_database.analytic_db.name
   name     = "MARTS"
 }
 
@@ -33,7 +33,7 @@ resource "snowflake_schema" "marts" {
 # So role owns every object in schema
 # and has every privilige on it. Related to #70 issue.
 resource "snowflake_schema" "dev_schema" {
-  database = snowflake_database.analytic_db
+  database = snowflake_database.analytic_db.name
   name     = "DEV_VLAD"
 }
 
