@@ -24,10 +24,12 @@ Snowflake RAW via `COPY INTO` from external stages → dbt staging/marts models.
   (`$DBT_VENV_PATH`), invoked via BashOperator
   (`plugins/common/utils/dbt.py::build_dbt_command`). Unpinned in the Dockerfile
   (currently 1.11.x), so new-syntax deprecations are live — see Conventions.
-- **Warehouse:** Snowflake, key-pair auth for service users. RAW db, schemas
-  AIR_POLLUTION and WEATHER. ALL dbt models currently build into `RAW.AIR_POLLUTION`
-  (`SNOWFLAKE_DATABASE=RAW`, no `+database`/`+schema` in `dbt_project.yml`); the
-  ANALYTICS db exists in Terraform but is unused — #44 (separate warehouse layers).
+- **Warehouse:** Snowflake, key-pair auth for service users. Layout per ADR-0005.
+  `RAW` holds only what the load writes (schemas `AIR_POLLUTION`, `WEATHER`).
+  `ANALYTICS` holds everything dbt builds: `STAGING` (staging models and the seed) and
+  `MARTS` in prod, and one personal schema `DEV_VLAD` for local runs. Every schema is
+  created by Terraform, and dbt's role has no `CREATE SCHEMA` (ADR-0006). The loader and
+  dbt share one role, `AIRFLOW_ROLE`, until #70.
 - **Infra:** Terraform (`terraform/`) — AWS VPC, ECS Fargate (monolith task: apiserver +
   scheduler + dag-processor), RDS Postgres 17 (Airflow metadata), S3 datalake, ECR,
   Secrets Manager, GitHub OIDC. Snowflake provider (~2.14) manages
@@ -65,11 +67,12 @@ Snowflake RAW via `COPY INTO` from external stages → dbt staging/marts models.
     through the seed.
   - `src_openweather.yml` declares TWO sources (`openweather_air_pollution`,
     `openweather_weather`), because dbt allows `database`/`schema` only per source.
-  - `marts/core`: `dim_location`, `fct_air_quality`, `fct_weather`. No materialization
-    config, so they are views. Contracts are not enforced yet.
+  - `marts/core`: `dim_location`, `fct_air_quality`, `fct_weather`. Views (set
+    explicitly in `dbt_project.yml`). Contracts are not enforced yet.
   - `dbt_project/tests/`: one singular test,
     `assert_fct_weather_has_24_hours_per_location_day.sql`.
 - `dbt_project/macros/` — `round_coordinate` (the single home of coordinate rounding);
+  `generate_schema_name` (schema routing per target plus the `+schema` guard, ADR-0005);
   shared doc blocks for coordinate columns live in `models/_shared_contract_docs.md`.
 - `docs/adr/` — architecture decision records. `docs/ROADMAP.md` — status and phases.
 - `research/` — scratch notebooks, excluded from lint and from git.
@@ -92,6 +95,11 @@ Snowflake RAW via `COPY INTO` from external stages → dbt staging/marts models.
   mismatch fails `terraform init`.
 - Dependencies are installed with Airflow constraint files (`make install_deps`).
 - Heavy imports go inside `@task` functions (fast DAG parsing).
+- **Snowflake env var naming.** `SNOWFLAKE_*` is the identity shared by the loader and
+  dbt (account, user, role, warehouse, key). `DBT_SNOWFLAKE_*` is where dbt writes.
+  `LOADER_SNOWFLAKE_*` is the loader's default location and exists only locally. In ECS
+  the loader's connection comes from the `airflow/snowflake/service-user` secret, so the
+  plain `SNOWFLAKE_*` and `DBT_SNOWFLAKE_*` env vars there are read by dbt only.
 - Secrets: `.env` (template `.env.template`), AWS Secrets Manager in prod; `keys/` is
   gitignored.
 
@@ -116,6 +124,11 @@ Snowflake RAW via `COPY INTO` from external stages → dbt staging/marts models.
   provides → `not_null`, default severity. Measures where absence is legal (`rain_1h_mm`,
   `snow_1h_mm`, `wind_gust_*`) → no `not_null`; the description says what NULL means.
   Any non-default severity carries a comment with its reason and removal condition.
+- **Every model folder and the seeds carry a `+schema`** in `dbt_project.yml`. Outside
+  `dev`, the `generate_schema_name` guard turns a missing one into a parse error, so CI
+  catches it. A new schema name must also exist in `terraform/snowflake.tf`: dbt cannot
+  create it, and the guard checks only that `+schema` is set, so a misspelt name fails
+  only the prod build.
 - Coordinates are rounded to 4 decimals everywhere — it is the join key to
   `dim_location`. Round only through `round_coordinate`, document coordinate columns via
   shared doc blocks. Never `round(..., 4)` by hand.
@@ -158,6 +171,18 @@ mean the phases defined there.
 - The `ci` target in `dbt_project/profiles.yml` is a deliberate dummy that only lets
   `dbt parse` render without secrets. Do not "fix" it to look like `dev` / `prod`.
 - `docker-compose.override.yml` adds a local JupyterLab service (profile `local`).
+
+- **Local dbt runs as `TERRAFORM_SVC`** (`SYSADMIN` + `SECURITYADMIN`, see #24/#70), so
+  a missing grant for `AIRFLOW_ROLE` never shows locally. It surfaces only in ECS. Caught
+  2026-10-24: a layout that was green locally failed in prod on two missing grants.
+- **Snowflake hides objects a role has no privilege on.** A missing grant reads as
+  `Table '...' does not exist`, not as a privilege error. Check `show grants on table`
+  before concluding that an object is gone.
+- **Grant table privileges on the table resource, not `on all tables in schema`.** An
+  `all` grant runs once and covers only tables that exist at that moment. It references
+  the schema, not the table, so Terraform may run it before the table is created, and a
+  later `future` grant does not reach a table that already exists. Granting on
+  `snowflake_table.<name>` makes the dependency explicit (2026-10-24).
 
 ### Silent failures
 
@@ -203,6 +228,10 @@ mean the phases defined there.
   `start_date`; caught live as a doubled seed. Until fixed:
   - Do NOT make `stg_internal__locations` or `dim_location` tables — today only the
     atomicity of `create or replace view` protects them.
+  - Unpause the two DAGs one at a time. Unpausing with `catchup=False` creates the latest
+    scheduled run immediately, so unpausing both together starts them in the same
+    second. On 2026-10-24 that failed all three tries of the air DAG's `run_dbt_build`,
+    most likely because both DAGs retried with the same `retry_delay` and collided again.
   - A green run is not a healthy run: retries hide the race, it shows only in
     `try_number`. Relevant to alerting (phase 4c).
   - Both processes share `target/` (no `--target-path`), and `max_active_runs` is unset,
@@ -210,9 +239,12 @@ mean the phases defined there.
   - Agreed direction: seed out of the daily run (`--exclude tag:seed_layer`) into a
     manual DAG, and a per-run `--target-path` (not derived from `run_id`). No ADR — every
     part is revertible.
+- **`dbt build --select +fct_air_quality` also runs a test on `fct_weather`.** Default
+  indirect selection is `eager`: a test is selected when any of its parents is, and
+  `relationships` on `fct_weather` has `dim_location` as a parent. On an empty schema the
+  air DAG fails until the weather DAG has built `fct_weather`. Before 4b this was hidden,
+  because `fct_weather` always existed in the shared schema. Fix pending on its own
+  branch (`--indirect-selection`); until then run the weather DAG first.
 - The air-pollution client has the weather client's shape and was never checked for the
   boundary-hour duplication the weather client had.
-- `terraform/database.tf`, `main.tf` and `oidc.tf` lack a trailing newline. Cosmetic;
-  `fmt -check` does not flag it.
-- The local `docker-compose.yml` has never been reviewed as a whole; findings are in
-  `CLAUDE.local.md`.
+  

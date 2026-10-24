@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — 2026-10-23
+Accepted — 2026-10-24 (proposed 2026-10-23)
 
 ## Context
 
@@ -85,8 +85,8 @@ consumer nothing, and one developer gains nothing from a per-layer copy.
 
 ## Consequences
 
-RAW has a single writer. dbt no longer needs `CREATE` privileges there, and once they are
-revoked, a misrouted node fails with a privilege error instead of landing silently. dbt
+RAW has a single writer. dbt no longer needs `CREATE` privileges there, and they are
+revoked, so a misrouted node fails with a privilege error instead of landing silently. dbt
 still shares table privileges on the raw tables with the load, because both run under one
 role (#70).
 
@@ -108,8 +108,8 @@ development is `DEV_VLAD`. Outside the `dev` target, the same override raises a 
 error for any model, seed or snapshot without a custom schema, so `dbt parse` in CI fails
 a pull request that adds a folder to no layer.
 
-dbt's target location now differs from the defaults of the loader's Airflow connection,
-while both read the same variables today. dbt gets its own location variables. This is a
+dbt's location and the loader's connection defaults now differ, so dbt reads its own
+location variables (`DBT_SNOWFLAKE_*`). This is a
 stopgap until the two jobs get separate identities (#70).
 
 Isolation covers the computed layer only. Development reads production RAW, and the local

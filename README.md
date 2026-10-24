@@ -52,8 +52,8 @@ flowchart LR
     subgraph SF["Snowflake"]
         direction TB
         RAW[("RAW<br/>VARIANT payloads")]
-        STG["staging<br/>flatten · cast · dedup"]
-        MART["marts<br/>dim_location<br/>fct_weather<br/>fct_air_quality"]
+        STG["ANALYTICS.STAGING<br/>flatten · cast · dedup"]
+        MART["ANALYTICS.MARTS<br/>dim_location<br/>fct_weather<br/>fct_air_quality"]
         RAW --> STG --> MART
     end
 
@@ -169,6 +169,18 @@ The failure mode is what makes this worth centralising. If one model drifts to a
 `dbt source freshness` sits between the load and the build, selected to the source that DAG owns, and reads `_RAW_LOADED_AT` with a one-hour warning and three-hour error threshold.
 
 It is placed there to catch a specific silent failure. A `COPY INTO` over a prefix that matches nothing is not an error — the statement succeeds, zero files load, the task goes green. A typo in `s3_prefix` or a drifted date format would therefore produce a pipeline that reports success and loads nothing. Freshness immediately after the load is what turns that into a failure.
+
+### 6. Loaded data and computed data live in different databases
+
+**→ [ADR-0005](docs/adr/0005-separate-warehouse-layers.md) · [ADR-0006](docs/adr/0006-terraform-owns-warehouse-schemas.md)**
+
+Every dbt model used to build into `RAW.AIR_POLLUTION`, next to the raw table it read from. Nobody chose that. dbt fell back to the connection's default schema, and that default happened to be one source's schema, so the weather staging model read from `RAW.WEATHER` and wrote into its neighbour.
+
+The rule now is that a relation's location follows who writes it and whether it can be rebuilt. `RAW` holds only what the load writes, one schema per source. `ANALYTICS` holds everything dbt builds, split by layer into `STAGING` and `MARTS`. Dropping anything in `ANALYTICS` loses nothing a `dbt build` cannot restore, and a BI consumer can be given `SELECT` on `MARTS` without ever seeing raw JSON. Local runs build into one personal schema, so development never replaces a production view.
+
+Terraform creates every schema, and dbt's role cannot create one. A `generate_schema_name` override fails the parse for any model or seed without a `+schema`, so CI rejects a folder that belongs to no layer, and a misspelt schema fails the build instead of quietly creating a new one.
+
+*Rejected:* schemas per source inside `ANALYTICS` (`dim_location` serves both facts and belongs to no source); staging next to the raw data (`RAW` would keep two writers); dbt's default prefixed naming (`PROD_STAGING` tells a consumer nothing); letting dbt create schemas (a database-wide privilege, and a typo silently creates a schema while the build stays green).
 
 ---
 
@@ -287,17 +299,17 @@ The project has an explicit finish line. It is done when five statements are tru
 - Immutable bronze and prefix-scoped loading, as described above.
 - Six dbt models, all documented to the project standard, covered by data tests and one singular test.
 - Python tests, including DAG contract tests, all running on every pull request alongside Terraform and dbt validation.
+- Warehouse layers separated: raw data in `RAW`, everything dbt builds in `ANALYTICS`, with schemas and grants in Terraform.
 - Full AWS and Snowflake footprint in Terraform, with deploys to ECS on merge.
 
 **Known limitations — the honest list**
 
 - **There is barely any history yet.** The warehouse was wiped clean on 2026-08-15 — bronze in S3 and the `RAW` tables — once the pipeline had stopped producing garbage (the two ADRs above). The order was deliberate: first stop the leak, then mop. Backfilling the lost history was considered and rejected: it is not yet a data product, and paying Snowflake credits to reconstruct development data is not worth it. History accumulates from that date forward, so anything that needs a long window has to wait.
-- **Every dbt model materialises into `RAW.AIR_POLLUTION`,** because `SNOWFLAKE_DATABASE=RAW` is passed to the container and `dbt_project.yml` sets no per-layer database or schema. `stg_openweather__weather` therefore reads from `RAW.WEATHER` and writes into its neighbour's schema. An `ANALYTICS` database is provisioned by Terraform and currently unused. Tracked as issue #44; it is the second step of the infrastructure phase.
 - **Failures are silent.** There is no alerting yet (issue #48). Note what tests structurally cannot cover here: a test lives inside a DAG, so "the pipeline did not run at all" is invisible to `source freshness` and to every test on the marts. It needs an outside observer.
 - **The daily completeness signal is not yet fit for daily reading.** The 24-hours-per-day test inspects the entire history on every run, so the first unrecoverable gap makes it permanently red — and a permanently red test is one nobody reads. It needs splitting into an archival test outside the daily run and a recent-window test inside it.
-- **Marts are views** (no materialisation config, so dbt's default applies) and nothing is incremental. Fine at five cities and hourly grain; not a pattern to copy at scale.
+- **Marts are views** and nothing is incremental. Fine at five cities and hourly grain; not a pattern to copy at scale.
 - **`dbt-snowflake` is installed unpinned in the image.** Reproducibility of the image therefore depends on when it was built.
-- **Some legacy remains.** The bastion host and NAT gateway have been removed (on branch `infra/remove-legacy-infrastructure`, awaiting merge), but a few `DB_*` environment variables survive from a removed Postgres ETL. Issue #45.
+- **Some legacy remains.** The bastion host and NAT gateway have been removed, but a few `DB_*` environment variables survive from a removed Postgres ETL. Issue #45.
 - **`stg_openweather__weather` keeps only the first element of the API's weather-conditions array.** If a response carries both rain and mist, the second is dropped before any tested table exists, so no test can catch it.
 
 **Next**
