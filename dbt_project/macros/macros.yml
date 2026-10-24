@@ -22,3 +22,36 @@ macros:
         description: >
           SQL expression for the latitude or longitude value that must be
           normalized to the shared warehouse precision.
+  - name: generate_schema_name
+    description: >
+      Overrides dbt's built-in schema naming to implement the warehouse layout
+      from ADR-0005. In the prod target, a node's configured schema (+schema) is
+      used verbatim, so staging models and seeds land in STAGING and marts in
+      MARTS. In any other target, every node goes to the target schema (DEV_VLAD
+      for local development) and +schema is ignored. The logic matches dbt's
+      built-in generate_schema_name_for_env, but is written out in the project
+      so that a dbt upgrade cannot change where relations are built.
+      GUARD: in every target except dev, a model, seed or snapshot without
+      +schema raises a compiler error. dbt calls this macro at parse time, and
+      CI runs dbt parse with the ci target, so a new folder that belongs to no
+      layer fails the pull request instead of reaching production. Tests pass
+      through this macro too and are exempt, because they are not part of the
+      layout.
+      TRAP: the switch is on the target name, not on its settings. A production
+      run under any target other than 'prod' builds every node into the target
+      schema. And the guard checks only that +schema is set: a typo in a schema
+      name is invisible locally and fails only the prod build, since dbt cannot
+      create schemas (ADR-0006).
+    arguments:
+      - name: custom_schema_name
+        type: string
+        description: >
+          The node's configured +schema, or none when the node has no custom
+          schema. Checked by the guard outside dev; used as the schema only in
+          the prod target, after trimming whitespace.
+      - name: node
+        type: object
+        description: >
+          The node being built. The guard reads its resource_type to decide
+          whether the node must have a +schema, and its unique_id for the error
+          message.

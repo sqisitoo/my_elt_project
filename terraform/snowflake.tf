@@ -18,6 +18,25 @@ resource "snowflake_schema" "raw_weather" {
   name     = "WEATHER"
 }
 
+resource "snowflake_schema" "staging" {
+  database = snowflake_database.analytic_db.name
+  name     = "STAGING"
+}
+
+resource "snowflake_schema" "marts" {
+  database = snowflake_database.analytic_db.name
+  name     = "MARTS"
+}
+
+# For local dbt running.
+# Local dbt runs as TERRAFORM_SVC with TERRAFORM_ROLE.
+# So role owns every object in schema
+# and has every privilige on it. Related to #70 issue.
+resource "snowflake_schema" "dev_schema" {
+  database = snowflake_database.analytic_db.name
+  name     = "DEV_VLAD"
+}
+
 
 resource "snowflake_warehouse" "tf_warehouse" {
   name                      = "SNOWFLAKE_WH"
@@ -200,7 +219,7 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_db" {
 resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_schema_usage" {
 
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["USAGE", "CREATE TABLE", "CREATE VIEW", "CREATE STAGE"]
+  privileges        = ["USAGE"]
 
   on_schema {
     schema_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_air_pollution.name}"
@@ -210,62 +229,32 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_sch
 resource "snowflake_grant_privileges_to_account_role" "airflow_weather_schema_usage" {
 
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["USAGE", "CREATE TABLE", "CREATE VIEW", "CREATE STAGE"]
+  privileges        = ["USAGE"]
 
   on_schema {
     schema_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}"
   }
 }
 
-resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_tables_usage" {
-
+# INSERT for the load, SELECT for dbt, which shares this role until #70.
+resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_table" {
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
+  privileges        = ["SELECT", "INSERT"]
 
   on_schema_object {
-    all {
-      object_type_plural = "TABLES"
-      in_schema          = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_air_pollution.name}"
-    }
+    object_type = "TABLE"
+    object_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_air_pollution.name}.${snowflake_table.raw_air_pollution.name}"
   }
 }
 
-resource "snowflake_grant_privileges_to_account_role" "airflow_weather_tables_usage" {
-
+# INSERT for the load, SELECT for dbt, which shares this role until #70.
+resource "snowflake_grant_privileges_to_account_role" "airflow_weather_table" {
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
+  privileges        = ["SELECT", "INSERT"]
 
   on_schema_object {
-    all {
-      object_type_plural = "TABLES"
-      in_schema          = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}"
-    }
-  }
-}
-
-resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_tables_usage_feature" {
-
-  account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
-
-  on_schema_object {
-    future {
-      object_type_plural = "TABLES"
-      in_schema          = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_air_pollution.name}"
-    }
-  }
-}
-
-resource "snowflake_grant_privileges_to_account_role" "airflow_weather_tables_usage_feature" {
-
-  account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
-
-  on_schema_object {
-    future {
-      object_type_plural = "TABLES"
-      in_schema          = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}"
-    }
+    object_type = "TABLE"
+    object_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}.${snowflake_table.raw_weather.name}"
   }
 }
 
@@ -286,6 +275,34 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_weather_stage" {
   on_schema_object {
     object_type = "STAGE"
     object_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}.${snowflake_stage_external_s3.stage_external_s3_weather.name}"
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "airflow_analytics_db" {
+  account_role_name = snowflake_account_role.airflow.name
+  privileges        = ["USAGE"]
+
+  on_account_object {
+    object_type = "DATABASE"
+    object_name = snowflake_database.analytic_db.name
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "airflow_staging_schema" {
+  account_role_name = snowflake_account_role.airflow.name
+  privileges        = ["USAGE", "CREATE VIEW", "CREATE TABLE"]
+
+  on_schema {
+    schema_name = "${snowflake_database.analytic_db.name}.${snowflake_schema.staging.name}"
+  }
+}
+
+resource "snowflake_grant_privileges_to_account_role" "airflow_marts_schema" {
+  account_role_name = snowflake_account_role.airflow.name
+  privileges        = ["USAGE", "CREATE VIEW", "CREATE TABLE"]
+
+  on_schema {
+    schema_name = "${snowflake_database.analytic_db.name}.${snowflake_schema.marts.name}"
   }
 }
 

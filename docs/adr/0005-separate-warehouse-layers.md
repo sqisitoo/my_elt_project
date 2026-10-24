@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed — 2026-10-23
+Accepted — 2026-10-24 (proposed 2026-10-23)
 
 ## Context
 
@@ -85,8 +85,8 @@ consumer nothing, and one developer gains nothing from a per-layer copy.
 
 ## Consequences
 
-RAW has a single writer. dbt no longer needs `CREATE` privileges there, and once they are
-revoked, a misrouted node fails with a privilege error instead of landing silently. dbt
+RAW has a single writer. dbt no longer needs `CREATE` privileges there, and they are
+revoked, so a misrouted node fails with a privilege error instead of landing silently. dbt
 still shares table privileges on the raw tables with the load, because both run under one
 role (#70).
 
@@ -100,13 +100,16 @@ No model SQL changes. `ref()` follows each node to its new location, and the sou
 already name `RAW` explicitly. The relations left in `RAW.AIR_POLLUTION` are not removed
 by dbt and are dropped by hand after the first green build in the new layout.
 
-The layout is implemented by overriding `generate_schema_name` to delegate to dbt's
-built-in `generate_schema_name_for_env`. In the `prod` target a custom schema is used
+The layout is implemented by overriding `generate_schema_name` with the logic of dbt's
+built-in `generate_schema_name_for_env`, written out in the project so that a dbt upgrade
+cannot change where relations are built. In the `prod` target a custom schema is used
 verbatim. In any other target every node goes to the target schema, which for local
-development is `DEV_VLAD`.
+development is `DEV_VLAD`. Outside the `dev` target, the same override raises a compiler
+error for any model, seed or snapshot without a custom schema, so `dbt parse` in CI fails
+a pull request that adds a folder to no layer.
 
-dbt's target location now differs from the defaults of the loader's Airflow connection,
-while both read the same variables today. dbt gets its own location variables. This is a
+dbt's location and the loader's connection defaults now differ, so dbt reads its own
+location variables (`DBT_SNOWFLAKE_*`). This is a
 stopgap until the two jobs get separate identities (#70).
 
 Isolation covers the computed layer only. Development reads production RAW, and the local

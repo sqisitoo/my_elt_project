@@ -196,22 +196,43 @@ locals {
   )
 }
 
-# Snowflake service-user credentials — assembled from Snowflake provider
-# resources (snowflake.tf) and the generated TLS key pair.
-# Two key variants are stored:
-#   key     — plain PEM, consumed by dbt (profiles.yml).
-#   key_b64 — base64-encoded PEM, consumed by the Airflow Snowflake connection.
+# Snowflake values for the two jobs that connect to Snowflake, assembled from
+# Snowflake provider resources (snowflake.tf) and the generated TLS key pair.
+#
+#   - Loader: the Airflow connection used by COPY INTO (secret airflow_snowflake).
+#   - dbt: profiles.yml, fed through plain env vars (section 7) and the
+#     dbt_snowflake secret.
+#
+# Identity (account, user, role, warehouse, key) is shared: both jobs run as
+# AIRFLOW_SVC / AIRFLOW_ROLE until the roles are split (#70).
+# Location (database, schema) is per job, because the loader writes RAW and dbt
+# builds ANALYTICS (ADR-0005). Sections 5-7 only read from here.
+#
+# Two key formats of the same private key:
+#   key     - plain PEM, read by dbt (profiles.yml).
+#   key_b64 - base64-encoded PEM, read by the Airflow Snowflake connection.
 locals {
   snowflake_creds = {
+    # --- Shared identity ---
     account   = "${var.snowflake_organization_name}-${var.snowflake_account_name}"
     user      = snowflake_service_user.service_user.name
     role      = snowflake_account_role.airflow.name
-    database  = snowflake_database.raw_db.name
     warehouse = snowflake_warehouse.tf_warehouse.name
-    schema    = snowflake_schema.raw_air_pollution.name
-    # plain pem for dbt, encoded for airflow snowflake conn 
-    key     = tls_private_key.airflow_svc_key.private_key_pem
-    key_b64 = base64encode(tls_private_key.airflow_svc_key.private_key_pem)
+    key       = tls_private_key.airflow_svc_key.private_key_pem
+    key_b64   = base64encode(tls_private_key.airflow_svc_key.private_key_pem)
+
+    # --- Loader location ---
+    # RAW only, and no default schema: SnowflakeClient uses fully qualified
+    # names, so a statement with a short name should fail instead of resolving
+    # against an arbitrary schema.
+    database_airflow = snowflake_database.raw_db.name
+
+    # --- dbt location ---
+    database_dbt = snowflake_database.analytic_db.name
+    # Fallback only. Every model folder and seed sets +schema, and the
+    # generate_schema_name guard fails the parse for a node without one,
+    # so in prod no node is expected to land here.
+    schema = snowflake_schema.staging.name
   }
 }
 
@@ -230,13 +251,14 @@ locals {
 #                          Each key in the JSON is extracted individually via
 #                          the "secret:jsonKey::" ARN syntax in the ECS secrets
 #                          block below.
-#   airflow_snowflake    — Snowflake service-user connection stored as a JSON
+#   airflow_snowflake    — the loader's Snowflake connection, stored as a JSON
 #                          blob matching the Airflow Connection schema.
 #                          Injected whole as AIRFLOW_CONN_SNOWFLAKE_CONN.
-#   dbt_snowflake        — Snowflake credentials for dbt (account, user, role,
-#                          database, warehouse, schema, private_key_content).
-#                          Individual keys are extracted via the same ARN
-#                          syntax for SNOWFLAKE_PRIVATE_KEY and SNOWFLAKE_USER.
+#                          Points at RAW with no default schema.
+#   dbt_snowflake        — Snowflake values for dbt. Only two keys are read:
+#                          user and private_key_content, extracted via the same
+#                          ARN syntax into SNOWFLAKE_USER and SNOWFLAKE_PRIVATE_KEY.
+#                          The other keys are written but reach no container.
 # -----------------------------------------------------------------------------
 
 resource "aws_secretsmanager_secret" "api_key_secret" {
@@ -277,19 +299,20 @@ resource "aws_secretsmanager_secret" "airflow_snowflake" {
   recovery_window_in_days = 0
 }
 
-# JSON blob follows Airflow's Connection schema: conn_type, login, schema,
+# JSON blob follows Airflow's Connection schema: conn_type, login,
 # and an "extra" map with account, warehouse, database, role, and the
 # base64-encoded private key for key-pair authentication (no password).
+# No "schema" on purpose: the loader uses fully qualified names (see the
+# loader location in section 4).
 resource "aws_secretsmanager_secret_version" "airflow_snowflake" {
   secret_id = aws_secretsmanager_secret.airflow_snowflake.id
   secret_string = jsonencode({
     "conn_type" = "snowflake"
     "login"     = local.snowflake_creds.user
-    "schema"    = local.snowflake_creds.schema
     "extra" = {
       "account"             = local.snowflake_creds.account
       "warehouse"           = local.snowflake_creds.warehouse
-      "database"            = local.snowflake_creds.database
+      "database"            = local.snowflake_creds.database_airflow
       "role"                = local.snowflake_creds.role
       "private_key_content" = local.snowflake_creds.key_b64
     }
@@ -297,9 +320,10 @@ resource "aws_secretsmanager_secret_version" "airflow_snowflake" {
 }
 
 # dbt Snowflake credentials — a JSON blob with account, user, role, database,
-# warehouse, schema, and the plain PEM private key (not base64). Individual
-# keys are extracted in the ECS secrets mapping (section 6) for SNOWFLAKE_PRIVATE_KEY
-# and SNOWFLAKE_USER env vars consumed by dbt.
+# warehouse, schema, and the plain PEM private key (not base64).
+# Section 6 extracts only "user" and "private_key_content" (SNOWFLAKE_USER,
+# SNOWFLAKE_PRIVATE_KEY). dbt reads its database, schema and the rest from the
+# plain env vars in section 7, so changing those keys here changes nothing.
 resource "aws_secretsmanager_secret" "dbt_snowflake" {
   name                    = "airflow/snowflake/dbt_parameters"
   recovery_window_in_days = 0
@@ -311,7 +335,7 @@ resource "aws_secretsmanager_secret_version" "dbt_snowflake" {
     "account"             = local.snowflake_creds.account
     "user"                = local.snowflake_creds.user
     "role"                = local.snowflake_creds.role
-    "database"            = local.snowflake_creds.database
+    "database"            = local.snowflake_creds.database_dbt
     "warehouse"           = local.snowflake_creds.warehouse
     "schema"              = local.snowflake_creds.schema
     "private_key_content" = local.snowflake_creds.key
@@ -396,8 +420,10 @@ locals {
 #   - AIRFLOW_CONN_AWS_DEFAULT="aws://": tells Airflow to use the task role's
 #     IAM credentials for all AWS operations (S3 logging, etc.) — no
 #     static AWS keys needed.
-#   - Snowflake non-secret vars (account, database, role, schema,
-#     warehouse): passed as plain env vars for dbt and DAG code.
+#   - Snowflake vars: read by dbt only (profiles.yml). The loader does not
+#     read env vars; it gets its connection from the airflow_snowflake secret.
+#     Naming: SNOWFLAKE_* is identity shared by both jobs, DBT_SNOWFLAKE_* is
+#     where dbt writes. Locally the loader also has LOADER_SNOWFLAKE_*.
 #   - DBT_* vars: dbt target, profiles dir, and project dir for the
 #     dbt CLI invoked by Airflow DAGs.
 #   - DB_* vars: passed for legacy DAG code that constructs its own
@@ -440,13 +466,13 @@ locals {
     { name = "AWS_S3_BUCKET_NAME", value = aws_s3_bucket.datalake.bucket },
     { name = "AWS_REGION", value = var.aws_region },
 
-    # --- Snowflake ---
+    # --- Snowflake (dbt only; the loader uses the airflow_snowflake secret) ---
     { name = "SNOWFLAKE_ACCOUNT", value = local.snowflake_creds.account },
-    { name = "SNOWFLAKE_DATABASE", value = local.snowflake_creds.database },
-    { name = "SNOWFLAKE_ROLE", value = local.snowflake_creds.role },
-    { name = "SNOWFLAKE_SCHEMA", value = local.snowflake_creds.schema },
     { name = "SNOWFLAKE_WAREHOUSE", value = local.snowflake_creds.warehouse },
+    { name = "SNOWFLAKE_ROLE", value = local.snowflake_creds.role },
 
+    { name = "DBT_SNOWFLAKE_SCHEMA", value = local.snowflake_creds.schema },
+    { name = "DBT_SNOWFLAKE_DATABASE", value = local.snowflake_creds.database_dbt },
     { name = "DBT_TARGET", value = var.dbt_target },
     { name = "DBT_PROFILES_DIR", value = var.dbt_profiles_dir },
     { name = "DBT_PROJECT_DIR", value = var.dbt_project_dir }

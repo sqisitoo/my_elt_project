@@ -22,12 +22,10 @@ Strategy: vertical slices — architectural debt is repaid when a phase runs int
 
 ## Phases
 
-Phases 1–3 and step 4a are done; numbering is kept so references stay stable.
+Phases 1–3 and steps 4a–4b are done; numbering is kept so references stay stable.
 
 ### 4. Infrastructure (cheapest step first)
 
-- **4b. Separate warehouse layers** (#44, plus #24/#40 schema naming): no model writes
-  into a neighbour's schema; the unused `ANALYTICS` database gets its role.
 - **4c. Make failures visible: alerting** (#48). A test lives inside the DAG, so "the
   pipeline did not run at all" is caught by neither `source freshness` nor any mart test —
   only by an external observer. "The run was green" is not enough as a health criterion:
