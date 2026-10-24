@@ -18,6 +18,25 @@ resource "snowflake_schema" "raw_weather" {
   name     = "WEATHER"
 }
 
+resource "snowflake_schema" "staging" {
+  database = snowflake_database.analytic_db
+  name = "STAGING"
+}
+
+resource "snowflake_schema" "marts" {
+  database = snowflake_database.analytic_db
+  name = "MARTS"
+}
+
+# For local dbt running.
+# Local dbt runs as TERRAFORM_SVC with TERRAFORM_ROLE.
+# So role owns every object in schema
+# and has every privilige on it. Related to #70 issue.
+resource "snowflake_schema" "dev_schema" {
+  database = snowflake_database.analytic_db
+  name = "DEV_VLAD"
+}
+
 
 resource "snowflake_warehouse" "tf_warehouse" {
   name                      = "SNOWFLAKE_WH"
@@ -200,7 +219,7 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_db" {
 resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_schema_usage" {
 
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["USAGE", "CREATE TABLE", "CREATE VIEW", "CREATE STAGE"]
+  privileges        = ["USAGE"]
 
   on_schema {
     schema_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_air_pollution.name}"
@@ -210,7 +229,7 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_sch
 resource "snowflake_grant_privileges_to_account_role" "airflow_weather_schema_usage" {
 
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["USAGE", "CREATE TABLE", "CREATE VIEW", "CREATE STAGE"]
+  privileges        = ["USAGE"]
 
   on_schema {
     schema_name = "${snowflake_database.raw_db.name}.${snowflake_schema.raw_weather.name}"
@@ -220,7 +239,7 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_weather_schema_us
 resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_tables_usage" {
 
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
+  privileges        = ["INSERT"]
 
   on_schema_object {
     all {
@@ -233,7 +252,7 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_tab
 resource "snowflake_grant_privileges_to_account_role" "airflow_weather_tables_usage" {
 
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
+  privileges        = ["INSERT"]
 
   on_schema_object {
     all {
@@ -246,7 +265,7 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_weather_tables_us
 resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_tables_usage_feature" {
 
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
+  privileges        = ["INSERT"]
 
   on_schema_object {
     future {
@@ -259,7 +278,7 @@ resource "snowflake_grant_privileges_to_account_role" "airflow_air_pollution_tab
 resource "snowflake_grant_privileges_to_account_role" "airflow_weather_tables_usage_feature" {
 
   account_role_name = snowflake_account_role.airflow.name
-  privileges        = ["SELECT", "INSERT", "UPDATE", "DELETE", "TRUNCATE"]
+  privileges        = ["INSERT"]
 
   on_schema_object {
     future {
