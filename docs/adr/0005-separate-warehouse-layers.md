@@ -104,7 +104,9 @@ The layout is implemented by overriding `generate_schema_name` with the logic of
 built-in `generate_schema_name_for_env`, written out in the project so that a dbt upgrade
 cannot change where relations are built. In the `prod` target a custom schema is used
 verbatim. In any other target every node goes to the target schema, which for local
-development is `DEV_VLAD`.
+development is `DEV_VLAD`. Outside the `dev` target, the same override raises a compiler
+error for any model, seed or snapshot without a custom schema, so `dbt parse` in CI fails
+a pull request that adds a folder to no layer.
 
 dbt's target location now differs from the defaults of the loader's Airflow connection,
 while both read the same variables today. dbt gets its own location variables. This is a
