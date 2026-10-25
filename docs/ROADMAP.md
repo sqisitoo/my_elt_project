@@ -34,8 +34,6 @@ Phases 1–3 and steps 4a–4b are done; numbering is kept so references stay st
   whose purpose and shape the owner cannot defend at review.
 - **4e. Decouple dbt from Airflow** (they share one image today). The Cosmos question is
   settled here, as part of the same decision about how dbt is executed.
-- **Postgres-ETL remnants in application code** (#45): requirements, `S3Service`,
-  `_DBSettings`. Cheap; do alongside any step that touches them.
 
 ### 5. Operation
 
