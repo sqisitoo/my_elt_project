@@ -8,10 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class _AWSSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="AWS_", extra="ignore")
 
-    access_key_id: str | None = None
-    secret_access_key: SecretStr | None = None
+    # Only the bucket is read here. Credentials and region reach boto3 through the
+    # aws_default connection (S3Hook), not through settings.
     s3_bucket_name: str
-    region: Literal["eu-north-1", "eu-central-1", "eu-west-1", "eu-west-2", "eu-west-3"] = "eu-north-1"
 
 
 class _APISettings(BaseSettings):
