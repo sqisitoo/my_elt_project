@@ -1,8 +1,6 @@
 ruff
 mypy
 pytest
+requests_mock
 types-requests
 types-PyYAML
-make
-types-psycopg2
-requests_mock

@@ -76,13 +76,15 @@ def test_load_to_snowflake_tolerates_skipped_cities(weather_dag):
     assert load_to_snowflake.trigger_rule == TriggerRule.NONE_FAILED_MIN_ONE_SUCCESS
 
 
-def test_dbt_tasks_bash_commands_use_env_vars(weather_dag):
+def test_dbt_tasks_bash_commands_use_configured_dbt(weather_dag):
+    from plugins.common.config import settings
+
     for task_id in ("run_dbt_source_freshness", "run_dbt_build"):
         cmd = weather_dag.get_task(task_id).bash_command
-        assert "$DBT_VENV_PATH" in cmd
-        assert "$DBT_TARGET" in cmd
-        assert "$DBT_PROJECT_DIR" in cmd
-        assert "$DBT_PROFILES_DIR" in cmd
+        assert cmd.startswith(str(settings.dbt.bin_path))
+        assert f"--target {settings.dbt.target}" in cmd
+        assert f"--project-dir {settings.dbt.project_dir}" in cmd
+        assert f"--profiles-dir {settings.dbt.profiles_dir}" in cmd
 
 
 def test_dbt_source_freshness_task_use_proper_selector(weather_dag):

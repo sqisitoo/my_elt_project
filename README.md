@@ -309,7 +309,6 @@ The project has an explicit finish line. It is done when five statements are tru
 - **The daily completeness signal is not yet fit for daily reading.** The 24-hours-per-day test inspects the entire history on every run, so the first unrecoverable gap makes it permanently red — and a permanently red test is one nobody reads. It needs splitting into an archival test outside the daily run and a recent-window test inside it.
 - **Marts are views** and nothing is incremental. Fine at five cities and hourly grain; not a pattern to copy at scale.
 - **`dbt-snowflake` is installed unpinned in the image.** Reproducibility of the image therefore depends on when it was built.
-- **Some legacy remains.** The bastion host and NAT gateway have been removed, but a few `DB_*` environment variables survive from a removed Postgres ETL. Issue #45.
 - **`stg_openweather__weather` keeps only the first element of the API's weather-conditions array.** If a response carries both rain and mist, the second is dropped before any tested table exists, so no test can catch it.
 
 **Next**

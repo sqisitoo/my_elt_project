@@ -17,7 +17,7 @@
 #   - Fargate (no EC2) — zero server management.
 #   - FARGATE_SPOT — ~70% cheaper; acceptable interruption risk for a pet project.
 #   - LocalExecutor — no need for Celery + Redis at low DAG concurrency.
-#   - Single RDS instance shared by Airflow metadata DB and analytics DWH.
+#   - RDS Postgres holds only the Airflow metadata DB; the warehouse is Snowflake.
 #   - Public subnets + assign_public_ip instead of NAT Gateway (~$32/mo saved).
 #   - Airflow task logs shipped to S3; CloudWatch kept at 5-day retention
 #     for quick operational debugging only.
@@ -159,17 +159,11 @@ resource "random_password" "flask_secret" {
 # -----------------------------------------------------------------------------
 # 4. DATABASE LOCALS
 # -----------------------------------------------------------------------------
-# Two connection strings to the same RDS instance, but with different drivers:
-#
-#   sql_alchemy_conn — used by Airflow internally for its metadata DB.
-#                      Requires "postgresql+psycopg2://" because Airflow's
-#                      SQLAlchemy layer needs the psycopg2 driver explicitly.
-#
-#   dwh_conn_string  — passed to DAG code via AIRFLOW_CONN_MY_POSTGRES_DWH.
-#                      Uses the plain "postgresql://" scheme (libpq-compatible).
-#
-# Both point to the same RDS instance to keep costs low in a pet project.
-# In production I'd separate the metadata DB from the analytics DWH.
+# sql_alchemy_conn — used by Airflow internally for its metadata DB.
+#                    A SQLAlchemy URL. "+psycopg2" is the default driver for
+#                    "postgresql://" and is spelled out only to be unambiguous.
+#                    The scheme must be "postgresql", not the libpq alias
+#                    "postgres": SQLAlchemy 1.4+ rejects the alias.
 # -----------------------------------------------------------------------------
 locals {
   database_endpoint = aws_db_instance.default.address
@@ -180,15 +174,6 @@ locals {
   # Airflow metadata DB connection (SQLAlchemy + psycopg2 driver)
   sql_alchemy_conn = format(
     "postgresql+psycopg2://%s:%s@%s/%s",
-    local.database_user,
-    local.database_pass,
-    local.database_endpoint,
-    local.database_name
-  )
-
-  # DWH connection for DAGs — injected as AIRFLOW_CONN_MY_POSTGRES_DWH
-  dwh_conn_string = format(
-    "postgresql://%s:%s@%s/%s",
     local.database_user,
     local.database_pass,
     local.database_endpoint,
@@ -247,7 +232,7 @@ locals {
 # Four secrets are used:
 #   api_key_secret       — OpenWeather API key (single string).
 #   airflow_core_secrets — a JSON blob bundling all Airflow-internal secrets
-#                          (DB conn, Fernet key, JWT, Flask key, DWH conn).
+#                          (metadata DB conn, Fernet key, JWT, Flask key).
 #                          Each key in the JSON is extracted individually via
 #                          the "secret:jsonKey::" ARN syntax in the ECS secrets
 #                          block below.
@@ -284,11 +269,6 @@ resource "aws_secretsmanager_secret_version" "airflow_core_secrets_version" {
     "AIRFLOW__API__SECRET_KEY"            = random_password.flask_secret.result
     "AIRFLOW__API_AUTH__JWT_SECRET"       = random_id.jwt_secret.b64_url
     "AIRFLOW__CORE__FERNET_KEY"           = random_id.fernet_key.b64_std
-    "AIRFLOW_CONN_MY_POSTGRES_DWH"        = local.dwh_conn_string
-
-    # TODO: deprecate — kept temporarily for legacy DAG code that reads
-    # DB_PASSWORD directly instead of using the Airflow Connection.
-    "DB_PASSWORD" = random_password.rds_password.result
   })
 }
 
@@ -381,14 +361,6 @@ locals {
       valueFrom = "${local.airflow_secrets_arn}:AIRFLOW__CORE__FERNET_KEY::"
     },
     {
-      name      = "AIRFLOW_CONN_MY_POSTGRES_DWH",
-      valueFrom = "${local.airflow_secrets_arn}:AIRFLOW_CONN_MY_POSTGRES_DWH::"
-    },
-    {
-      name      = "DB_PASSWORD",
-      valueFrom = "${local.airflow_secrets_arn}:DB_PASSWORD::"
-    },
-    {
       name      = "AIRFLOW_CONN_SNOWFLAKE_CONN",
       valueFrom = aws_secretsmanager_secret.airflow_snowflake.arn
     },
@@ -406,7 +378,7 @@ locals {
 # 7. AIRFLOW ENVIRONMENT VARIABLES (non-secret, plain-text)
 # -----------------------------------------------------------------------------
 # These are safe to pass as plain env vars — no credentials here.
-# Sensitive values (DB password, Fernet key, etc.) are in the "secrets" block.
+# Sensitive values (metadata DB conn, Fernet key, etc.) are in the "secrets" block.
 #
 # Key design decisions:
 #   - LocalExecutor: sufficient for a pet-project with low DAG concurrency;
@@ -426,8 +398,6 @@ locals {
 #     where dbt writes. Locally the loader also has LOADER_SNOWFLAKE_*.
 #   - DBT_* vars: dbt target, profiles dir, and project dir for the
 #     dbt CLI invoked by Airflow DAGs.
-#   - DB_* vars: passed for legacy DAG code that constructs its own
-#     connection instead of using the Airflow Connection object.
 # -----------------------------------------------------------------------------
 locals {
   airflow_env_vars = [
@@ -452,13 +422,6 @@ locals {
 
     # "aws://" = use IAM task role credentials, no static keys.
     { name = "AIRFLOW_CONN_AWS_DEFAULT", value = "aws://" },
-
-    # --- RDS connection details (non-secret parts) ---
-    # DB_PASSWORD is injected separately via the secrets block.
-    { name = "DB_HOST", value = aws_db_instance.default.address },
-    { name = "DB_PORT", value = tostring(aws_db_instance.default.port) },
-    { name = "DB_NAME", value = aws_db_instance.default.db_name },
-    { name = "DB_USER", value = aws_db_instance.default.username },
 
     # --- Application-specific config ---
     { name = "API_BASE_URL", value = var.api_base_url },

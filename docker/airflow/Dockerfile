@@ -2,9 +2,10 @@ FROM apache/airflow:slim-3.1.6-python3.10
 
 ARG PYTHON_VERSION=3.10
 ARG CONSTRAINT_URL="https://raw.githubusercontent.com/apache/airflow/constraints-${AIRFLOW_VERSION}/constraints-${PYTHON_VERSION}.txt"
-# Sets the environment variable for the DBT virtual environment path
-# This path is used by Airflow to locate and activate the isolated Python environment
-# where DBT dependencies are installed, separate from Airflow's dependencies
+# dbt lives in its own venv, isolated from Airflow's dependencies.
+# _DBTSettings.venv_path (plugins/common/config/settings.py) reads this ENV and
+# carries the same path as its default: change both together. Do not duplicate
+# it in .env: compose's env_file would override this value.
 ENV DBT_VENV_PATH="/opt/airflow/dbt_venv"
 
 ADD --chown=airflow:airflow ${CONSTRAINT_URL} /constraints.txt
