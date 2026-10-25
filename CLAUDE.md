@@ -21,8 +21,9 @@ Snowflake RAW via `COPY INTO` from external stages → dbt staging/marts models.
 - **Orchestration:** Airflow 3.1.6 (TaskFlow API via `airflow.sdk`, dynamic task mapping
   `.expand()`), Python 3.10.
 - **Transform:** dbt-snowflake in a separate venv inside the Airflow image
-  (`$DBT_VENV_PATH`), invoked via BashOperator
-  (`plugins/common/utils/dbt.py::build_dbt_command`). Unpinned in the Dockerfile
+  (`DBT_VENV_PATH`), invoked via BashOperator. The command is built by
+  `plugins/common/utils/dbt.py::build_dbt_command` from `settings.dbt` (paths and
+  target), as a fixed string with no shell expansion. Unpinned in the Dockerfile
   (currently 1.11.x), so new-syntax deprecations are live — see Conventions.
 - **Warehouse:** Snowflake, key-pair auth for service users. Layout per ADR-0005.
   `RAW` holds only what the load writes (schemas `AIR_POLLUTION`, `WEATHER`).
