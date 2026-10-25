@@ -1,16 +1,22 @@
-pandas
-s3fs
-fsspec
-apache-airflow-providers-postgres
+# Direct imports of dags/ and plugins/. Everything else comes transitively,
+# pinned by the Airflow constraints file.
 apache-airflow-providers-amazon
 apache-airflow-providers-snowflake
-sqlalchemy
-apache-airflow-providers-fab
-jupyterlab
-requests
-boto3
-pendulum
-pyarrow
+apache-airflow-providers-standard
+botocore
 pydantic
 pydantic_settings
-pytest
+PyYAML
+requests
+urllib3
+
+# Not imported, required at runtime:
+# AIRFLOW__CORE__AUTH_MANAGER points at FabAuthManager.
+apache-airflow-providers-fab
+# Brings the psycopg2 driver that AIRFLOW__DATABASE__SQL_ALCHEMY_CONN uses.
+apache-airflow-providers-postgres
+
+# Not imported, local exploration only: the jupyter_lab service in
+# docker-compose.override.yml is built from this image and used for ad-hoc
+# notebooks in research/. Pipeline code must not depend on these.
+jupyterlab
