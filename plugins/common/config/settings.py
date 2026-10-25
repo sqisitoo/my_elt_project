@@ -28,9 +28,14 @@ class _APISettings(BaseSettings):
 class _DBTSettings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="DBT_", extra="ignore")
 
-    venv_path: str = "/opt/airflow/dbt-venv"
+    # MUST match ENV DBT_VENV_PATH in docker/airflow/Dockerfile, where the venv is
+    # created. In the image the ENV wins; the default only lets settings import
+    # outside it (e.g. pytest in CI). Change both together.
+    venv_path: str = "/opt/airflow/dbt_venv"
     profiles_dir: str
     project_dir: str
+    # The targets defined in dbt_project/profiles.yml.
+    target: Literal["dev", "prod", "ci"]
 
     @computed_field
     def bin_path(self) -> Path:

@@ -1,16 +1,17 @@
 import pytest
 
+from plugins.common.config import settings
 from plugins.common.utils.dbt import build_dbt_command
 
 
 @pytest.mark.parametrize("subcommand", ["build", "source freshness", "test", "run"])
-def test_build_dbt_command_contains_required_env_vars(subcommand):
+def test_build_dbt_command_uses_configured_dbt(subcommand):
     cmd = build_dbt_command(subcommand)
 
-    assert "$DBT_VENV_PATH" in cmd
-    assert "$DBT_PROJECT_DIR" in cmd
-    assert "$DBT_PROFILES_DIR" in cmd
-    assert "$DBT_TARGET" in cmd
+    assert cmd.startswith(f"{settings.dbt.bin_path} {subcommand} ")
+    assert f"--project-dir {settings.dbt.project_dir}" in cmd
+    assert f"--profiles-dir {settings.dbt.profiles_dir}" in cmd
+    assert f"--target {settings.dbt.target}" in cmd
 
 
 def test_build_dbt_command_includes_subcommand():
